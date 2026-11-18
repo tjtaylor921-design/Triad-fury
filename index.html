@@ -574,6 +574,7 @@ return{
   blink(f,mv){go(()=>E.shadow.blink({v:ELEM[f.c.pas]==='shadow'?1:.7,s:1}))},
   beam(f,mv,dur){go(()=>el(f).beam(tier(mv),dur))},
   hit(f,mv,i,n){go(()=>{const e=el(f),t=tier(mv);if(mv.name==='Bulwark Bash'||mv.name==='Chainwall')e.clang(t);else e.hit({v:t.v*(i===n-1?1:.75),s:1});if(i===n-1&&mv.cost===3)e.final(t)})},
+  vortex(){go(()=>{nz({a:.14,dur:.32,v:.4,type:'bandpass',f0:250,f1:1500,q:4,lfo:16,lfd:220});os({a:.12,dur:.3,v:.14,f0:80,f1:240,vib:14,vd:30});nz({d:.1,a:.02,dur:.25,v:.2,type:'highpass',f0:4000,q:.6})})},
   test:E
 }})();
 function sfx(k){if(S.mute||!AC)return;try{
@@ -912,7 +913,7 @@ function mkFighter(d,side,hpMul){const c=CH[d.cid],rel=d.relics||{},st=stats(d.c
   return{c,cid:d.cid,lvl:d.lvl,ranks:d.ranks,relics:rel,side,maxHp:mh,hp:mh,lag:mh,atk:st.atk,power:rel.cell?RV('cell',rel.cell):0,fx:[],shield:0,state:'bench',t:0,combo:0,buf:false,want:0,hitDone:false,blockedLast:false,stun:0,frozen:false,stunImm:0,sp:null,ox:-340,oy:0,alpha:1,flip:1,pose:Object.assign({},POSES.idle),flash:0,revived:false,haloUsed:false,hold:false,hitDur:0,recDur:0,auraT:0}}
 function startBattle(cfg){
   B={cfg,T:[{fs:cfg.team.map(d=>mkFighter(d,0,1)),act:0,tagCd:0},{fs:cfg.enemies.map(e=>mkFighter(e,1,cfg.hpMul)),act:0,tagCd:0}],
-     time:0,phase:'intro',pt:0,parts:[],floats:[],projs:[],rings:[],banners:[],pows:[],shake:0,flash:0,slow:0,dim:0,ai:{timer:.5,hold:0},result:null,paused:false,shown:false,amb:ambInit(cfg.arena),rdt:0,ctlFor:null};
+     time:0,phase:'intro',pt:0,parts:[],floats:[],projs:[],rings:[],vortices:[],banners:[],pows:[],shake:0,flash:0,slow:0,dim:0,ai:{timer:.5,hold:0},result:null,paused:false,shown:false,amb:ambInit(cfg.arena),rdt:0,ctlFor:null};
   enter(0,0);enter(1,0);INPUT.block=false;
 }
 function enter(side,idx){const tm=B.T[side],f=tm.fs[idx];tm.act=idx;f.state='enter';f.t=0;f.ox=-340;f.oy=0;f.alpha=1;f.flip=1;f.combo=0;f.hold=false;f.want=0;
@@ -922,6 +923,18 @@ function addPower(f,x){let m=1;if(f.c.pas==='torque')m*=1.3;if(has(f,'coil'))m*=
 function heal(f,x){if(f.hp<=0||x<=0)return;const b=f.hp;f.hp=Math.min(f.maxHp,f.hp+Math.round(x));if(f.hp-b>=1&&f.state!=='bench')floatTxt(f,'+'+(f.hp-b),'#5df2a0',16)}
 function floatTxt(f,txt,col,size){if(B.floats.length>40)B.floats.shift();B.floats.push({x:posX(f)+rnd(-24,24),y:GY-190+rnd(-14,14)+f.oy,txt:String(txt),col,size:size||20,t:0})}
 function burst(x,y,n,col,sp,life,size,grav){for(let i=0;i<n;i++){if(B.parts.length>260)break;const a=R()*6.283,v=(sp||220)*(.3+R()*.7);B.parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-40,life:(life||.45)*(.6+R()*.6),max:life||.45,col,size:(size||3)*(.6+R()*.8),grav:grav==null?320:grav})}}
+function vortex(x,col,f){if(!B)return;B.vortices.push({x:clamp(x,70,W-70),y:GY-112,col,t:0,life:.5,spin:R()*6});SPX.vortex()}
+const vOpen=v=>{const u=v.t/v.life;return u<.2?1-Math.pow(1-u/.2,3):u>.7?Math.pow(1-(u-.7)/.3,2):1};
+function drawVortex(g,v){const o=vOpen(v);if(o<=.01)return;const rx=44*o,ry=112*o,sp=v.spin-B.time*10;g.save();g.translate(v.x,v.y);
+  g.save();g.globalCompositeOperation='lighter';const halo=g.createRadialGradient(0,0,rx*.4,0,0,rx*2.2);halo.addColorStop(0,rgba(v.col,.35*o));halo.addColorStop(1,rgba(v.col,0));g.scale(1,ry/rx);g.fillStyle=halo;g.beginPath();g.arc(0,0,rx*2.2,0,7);g.fill();g.restore();
+  g.save();g.scale(1,ry/rx);const core=g.createRadialGradient(0,0,0,0,0,rx);core.addColorStop(0,'rgba(4,2,10,.97)');core.addColorStop(.5,'rgba(10,4,24,.92)');core.addColorStop(.82,rgba(shade(v.col,.45),.9));core.addColorStop(1,rgba(v.col,0));
+  g.fillStyle=core;g.beginPath();g.arc(0,0,rx*1.08,0,7);g.fill();
+  g.globalCompositeOperation='lighter';g.lineCap='round';
+  for(let k=0;k<6;k++){const b=sp+k*Math.PI/3;for(let pass=0;pass<2;pass++){g.beginPath();for(let j=0;j<=22;j++){const r=rx*(1.04-j/22*.9),a=b+j*.24;g.lineTo(Math.cos(a)*r,Math.sin(a)*r)}
+    g.strokeStyle=pass?'rgba(255,255,255,'+(.55*o)+')':rgba(v.col,.85*o);g.lineWidth=(pass?1.4:4)/((ry/rx)*.5+.5);g.stroke()}}
+  g.restore();
+  g.strokeStyle=rgba(v.col,.9*o);g.lineWidth=3;g.beginPath();g.ellipse(0,0,rx,ry,0,0,7);g.stroke();g.strokeStyle='rgba(255,255,255,'+(.5*o)+')';g.lineWidth=1.2;g.beginPath();g.ellipse(0,0,rx*.96,ry*.97,0,0,7);g.stroke();
+  g.restore()}
 function ring(x,y,col,max,flat){B.rings.push({x,y,col,max:max||90,t:0,flat})}
 function shake(v){if(!RM)B.shake=Math.max(B.shake,v)}
 const POWS=['WHAM!','KRAK!','POW!','THOOM!','BAM!','KRUNCH!','SMASH!'];
@@ -935,7 +948,7 @@ function applyDamage(d,dmg,o){o=o||{};if(B.phase==='end'||d.hp<=0)return 0;const
   return full}
 function kill(d){
   if(has(d,'feather')&&!d.revived){d.revived=true;d.hp=Math.round(d.maxHp*rv(d,'feather')/100);floatTxt(d,'REVIVED','#ffb02e',22);ring(posX(d),GY-90,'#ffb02e',130);burst(posX(d),GY-90,24,'#ffb02e',260,.7,4,-80);return}
-  d.hp=0;d.state='ko';d.t=0;d.fx=[];d.sp=null;d.koDone=false;d.alpha=1;d.flip=1;d.oy=0;d.shield=0;d.hold=false;B.slow=.45;shake(12);sfx('ko');vsfx(d.cid,'hurt',{vol:.9,max:.6,rate:.92});
+  d.hp=0;d.state='ko';d.t=0;d.fx=[];d.sp=null;d.koDone=false;d.alpha=1;d.flip=1;d.oy=0;d.warp=null;d.shield=0;d.hold=false;B.slow=.45;shake(12);sfx('ko');vsfx(d.cid,'hurt',{vol:.9,max:.6,rate:.92});
   const k=act(1-d.side);if(k&&k.hp>0&&has(k,'heart'))heal(k,k.maxHp*rv(k,'heart')/100);
   if(!B.T[d.side].fs.some(x=>x.hp>0)){B.phase='end';B.pt=0;B.result=d.side===1?'win':'lose';B.slow=1.1;B.projs=[];const w=act(1-d.side);if(w.state!=='ko'){w.state='win';w.sp=null;w.alpha=1;w.flip=1;w.oy=0;w.hold=false}}}
 function dealDamage(a,d,base,o){let m=1;const crit=R()<.05+(a.c.pas==='nyx'?.25:0)+rv(a,'eye')/100+(has(a,'umbral')?.15:0);
@@ -991,10 +1004,17 @@ function buildTL(f,mv){const Wd=.42,ev=[],n=mv.hits;let end=Wd+.45;const sp=()=>
     for(let i=0;i<n;i++)ev.push({t:Wd+.38+i*.28,f:()=>{const s=sp();s.phase='land';s.lock=false;f.oy=0;const x=posX(f)+FACE[f.side]*50;ring(x,GY,mv.col,150,true);burst(x,GY-6,16,'#c9b9a4',240,.5,4,500);shake(11);spHit(f,mv,i,n)}});end=Wd+.38+n*.28+.18;break;
   case'beam':ev.push({t:Wd,f:()=>{sp().phase='beam';SPX.beam(f,mv,n*.13+.15)}});for(let i=0;i<n;i++)ev.push({t:Wd+.08+i*.13,f:H(i)});ev.push({t:Wd+.1+n*.13,f:()=>{sp().phase='act'}});end=Wd+.1+n*.13+.22;break;
   case'blink':{const puff=()=>{burst(posX(f),GY-90,12,mv.col,180,.4,3,0);SPX.blink(f,mv)};
-    ev.push({t:Wd,f:()=>{const s=sp();puff();s.phase='gone';s.lock=true;f.alpha=0}});
-    ev.push({t:Wd+.14,f:()=>{const o=foe(f);f.ox=DIST-(o?o.ox:0)+105;f.flip=-1;f.alpha=1;sp().phase='behind';puff()}});
-    for(let i=0;i<n;i++)ev.push({t:Wd+.2+i*.11,f:H(i)});
-    const t2=Wd+.2+n*.11+.1;ev.push({t:t2,f:()=>{puff();f.alpha=0}});ev.push({t:t2+.12,f:()=>{f.ox=0;f.flip=1;f.alpha=1;puff();sp().phase='act'}});end=t2+.25;break}
+    const destX=()=>{const o=foe(f);return HOME[f.side]+FACE[f.side]*(DIST-(o?o.ox:0)+105)};
+    ev.push({t:Wd-.12,f:()=>vortex(posX(f),mv.col,f)});
+    ev.push({t:Wd,f:()=>{const s=sp();puff();s.phase='gone';s.lock=true;f.warp={t:0,dur:.12,out:true}}});
+    ev.push({t:Wd+.04,f:()=>vortex(destX(),mv.col,f)});
+    ev.push({t:Wd+.16,f:()=>{const o=foe(f);f.ox=DIST-(o?o.ox:0)+105;f.flip=-1;f.alpha=1;f.warp={t:0,dur:.12,out:false};sp().phase='behind';puff()}});
+    for(let i=0;i<n;i++)ev.push({t:Wd+.3+i*.11,f:H(i)});
+    const t2=Wd+.3+n*.11+.1;
+    ev.push({t:t2-.12,f:()=>vortex(posX(f),mv.col,f)});
+    ev.push({t:t2,f:()=>{puff();f.warp={t:0,dur:.12,out:true}}});
+    ev.push({t:t2+.04,f:()=>vortex(HOME[f.side],mv.col,f)});
+    ev.push({t:t2+.16,f:()=>{f.ox=0;f.flip=1;f.alpha=1;f.warp={t:0,dur:.12,out:false};puff();sp().phase='act'}});end=t2+.34;break}
   case'self':ev.push({t:Wd,f:()=>{sp().phase='act';selfFx(f,mv)}});end=Wd+.45;break;
   }
   return{ev,end}}
@@ -1011,7 +1031,7 @@ function poseFor(f){switch(f.state){
     if(st==='proj'||st==='beam')return POSES.throw;if(st==='rush')return POSES['atk'+(1+sp.hitN%3)];
     if(st==='slam')return ph==='jump'?POSES.air:POSES.slam;if(st==='blink')return POSES['atk'+(2+sp.hitN%2)];return POSES.cast}}
   return POSES.idle}
-function updateFighter(f,dt){
+function updateFighter(f,dt){if(f.warp){f.warp.t+=dt;if(f.warp.t>=f.warp.dur){if(f.warp.out)f.alpha=0;f.warp=null}}
   f.flash=Math.max(0,f.flash-dt*5);f.stunImm-=dt;f.want-=dt;
   if(f.state!=='ko'){for(let i=f.fx.length-1;i>=0;i--){const e=f.fx[i];if(!e)continue;e.t-=dt;if(FXI[e.k].dot||e.k==='regen'){e.tick-=dt;if(e.tick<=0){e.tick+=.5;if(e.k==='regen')heal(f,e.v);else{applyDamage(f,Math.max(1,Math.round(e.v)),{dot:e.k});if(f.state==='ko')break}}}if(e.t<=0)f.fx.splice(i,1)}
     f.auraT-=dt;if(f.auraT<=0&&f.fx.length){f.auraT=.09;const e=f.fx[Math.floor(R()*f.fx.length)];if(e&&FXI[e.k].dot)B.parts.push({x:posX(f)+rnd(-18,18),y:GY-rnd(40,150),vx:rnd(-15,15),vy:e.k==='bleed'?60:-70,life:.5,max:.5,col:FXI[e.k].c,size:3,grav:e.k==='bleed'?300:-40})}}
@@ -1060,8 +1080,10 @@ function tick(dt){if(!B||B.paused)return;const real=dt;if(B.slow>0){B.slow-=real
   if(B.phase==='fight')aiUpdate(dt);else act(1).hold=false;
   updateFighter(act(0),dt);updateFighter(act(1),dt);
   for(let i=B.projs.length-1;i>=0;i--){const q=B.projs[i];q.t+=dt;if(q.t>=q.dur){B.projs.splice(i,1);q.hit()}}
-  for(let i=B.parts.length-1;i>=0;i--){const q=B.parts[i];q.life-=dt;if(q.life<=0){B.parts.splice(i,1);continue}if(q.to){q.x+=(posX(q.to)-q.x)*dt*9;q.y+=(GY-90-q.y)*dt*9}else{q.vy+=q.grav*dt;q.x+=q.vx*dt;q.y+=q.vy*dt}}
+  for(let i=B.parts.length-1;i>=0;i--){const q=B.parts[i];q.life-=dt;if(q.life<=0){B.parts.splice(i,1);continue}if(q.to){q.x+=(posX(q.to)-q.x)*dt*9;q.y+=(GY-90-q.y)*dt*9}else if(q.tx!=null){q.x+=(q.tx-q.x)*dt*8;q.y+=(q.ty-q.y)*dt*8}else{q.vy+=q.grav*dt;q.x+=q.vx*dt;q.y+=q.vy*dt}}
   for(let i=B.rings.length-1;i>=0;i--){B.rings[i].t+=dt;if(B.rings[i].t>.45)B.rings.splice(i,1)}
+  for(let i=B.vortices.length-1;i>=0;i--){const v=B.vortices[i];v.t+=dt;if(v.t>v.life){B.vortices.splice(i,1);continue}
+    if(B.parts.length<250&&vOpen(v)>.5)for(let k=0;k<2;k++){const a=R()*6.283,r=rnd(90,150);B.parts.push({x:v.x+Math.cos(a)*r*.6,y:v.y+Math.sin(a)*r,vx:0,vy:0,life:.3,max:.3,col:R()<.3?'#ffffff':v.col,size:rnd(2,4),grav:0,tx:v.x,ty:v.y})}}
   for(let i=B.pows.length-1;i>=0;i--){B.pows[i].t+=dt;if(B.pows[i].t>.5)B.pows.splice(i,1)}
   for(let i=B.floats.length-1;i>=0;i--){B.floats[i].t+=dt;if(B.floats[i].t>.95)B.floats.splice(i,1)}
   for(let i=B.banners.length-1;i>=0;i--){B.banners[i].t+=real;if(B.banners[i].t>1.3)B.banners.splice(i,1)}
@@ -1092,7 +1114,7 @@ function drawProj(g,q){const d=act(1-q.side),tx=posX(d)+q.dx,u=clamp(q.t/q.dur,0
 function drawBeam(g,f){const sp=f.sp,d=foe(f),x0=posX(f)+FACE[f.side]*58,y0=GY-128,x1=posX(d),w=11+Math.sin(B.time*60)*4;g.save();g.globalCompositeOperation='lighter';g.lineCap='round';
   g.strokeStyle=rgba(sp.mv.col,.35);g.lineWidth=w*2.6;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,GY-112);g.stroke();g.strokeStyle=sp.mv.col;g.lineWidth=w;g.stroke();g.strokeStyle='#ffffff';g.lineWidth=w*.35;g.stroke();g.restore();
   if(B.parts.length<240)B.parts.push({x:x1+rnd(-10,10),y:GY-112+rnd(-14,14),vx:rnd(-160,160),vy:rnd(-160,160),life:.25,max:.25,col:sp.mv.col,size:3,grav:0})}
-function drawOne(g,f){if(f.state==='bench')return;const x=posX(f),y=GY+f.oy,face=FACE[f.side]*f.flip;let a=f.alpha;
+function drawOne(g,f){if(f.state==='bench')return;const x=posX(f),y=GY+f.oy;let a=f.alpha,wx=1;if(f.warp){const k=clamp(f.warp.t/f.warp.dur,0,1),e=f.warp.out?k:1-k;wx=1-e*.9;a*=1-e*.6}const face=FACE[f.side]*f.flip*wx;
   if(f.state==='ko'&&B.phase==='fight')a*=clamp((1.3-f.t)/.35,0,1);
   if(a<=.01)return;
   if(f.c.boss&&f.state!=='ko'){g.save();g.globalCompositeOperation='lighter';const q=g.createRadialGradient(x,GY-6,6,x,GY-6,120);q.addColorStop(0,rgba(f.c.L.accent,.38+.12*Math.sin(B.time*4)));q.addColorStop(1,rgba(f.c.L.accent,0));g.fillStyle=q;g.beginPath();g.ellipse(x,GY-4,120,150,0,0,7);g.fill();g.restore()}
@@ -1129,6 +1151,7 @@ function render(){const g=G;g.setTransform(Q,0,0,Q,0,0);g.globalAlpha=1;g.global
   g.drawImage(arenaStatic(B.cfg.arena),-12,-12,W+24,H+24);arenaDyn(g,B.cfg.arena,B.time,B.rdt,B.amb);
   if(B.dim>.01){g.fillStyle='rgba(4,2,10,'+B.dim*.55+')';g.fillRect(-20,-20,W+40,H+40)}
   B.rings.forEach(q=>{const u=q.t/.45;g.save();g.translate(q.x,q.y);if(q.flat)g.scale(1,.25);g.strokeStyle=rgba(q.col,1-u);g.lineWidth=6*(1-u)+1;g.beginPath();g.arc(0,0,q.max*u+8,0,7);g.stroke();g.restore()});
+  B.vortices.forEach(v=>drawVortex(g,v));
   const a=act(0),b=act(1),order=(a.state==='hit'||a.state==='ko'||a.state==='stunned')?[a,b]:[b,a];
   B.T.forEach(tm=>tm.fs.forEach(f=>{if(f!==a&&f!==b&&f.state==='ko')drawOne(g,f)}));
   order.forEach(f=>drawOne(g,f));
