@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Brakk 3D Prototype</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+#wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#stage{position:relative;aspect-ratio:16/9;width:min(100vw,177.78vh)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+.ov{position:absolute;pointer-events:none;font-family:Anton,Impact,"DejaVu Sans",sans-serif;font-style:italic;text-transform:uppercase;color:#fff;letter-spacing:.04em;
+  text-shadow:0 .08em 0 #000,0 0 .4em rgba(0,0,0,.8);-webkit-text-stroke:.02em #000;opacity:0;transition:none}
+#title{left:4%;bottom:9%;font-size:5.6vmin;line-height:1}
+#title small{display:block;font-size:.5em;color:#e0a23a;letter-spacing:.2em;margin-top:.25em}
+#banner{left:0;top:16%;font-size:6vmin;padding:.15em .6em .15em 4%;background:linear-gradient(90deg,rgba(8,5,10,.85),rgba(8,5,10,.6) 70%,transparent);border-bottom:.08em solid #e0a23a}
+#pow{left:50%;top:40%;font-size:9vmin;color:#e5383b;transform:translate(-50%,-50%) rotate(-8deg)}
+#tag{right:2%;bottom:2.5%;font-size:2.2vmin;opacity:.7;font-style:normal;letter-spacing:.12em}
+</style>
+</head>
+<body>
+<div id="wrap"><div id="stage">
+<canvas id="cv"></canvas>
+<div class="ov" id="title">Brakk Ironjaw<small>Siege Juggernaut</small></div>
+<div class="ov" id="banner">Quake Breaker</div>
+<div class="ov" id="pow">KRAKOOM!</div>
+<div class="ov" id="tag" style="opacity:.7">Triad Fury · Babylon.js 3D prototype</div>
+</div></div>
+<script src="babylon.js"></script>
+<script>
+(()=>{'use strict';
+const B=BABYLON,V=(x,y,z)=>new B.Vector3(x,y,z),C=h=>B.Color3.FromHexString(h),D2R=Math.PI/180;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v,lerp=(a,b,t)=>a+(b-a)*t,ease=t=>t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+const easeOut=t=>1-Math.pow(1-t,3),easeBack=t=>{const c1=1.70158,c3=c1+1;return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2)};
+let seedv=7;const rnd=()=>{seedv=(seedv*16807)%2147483647;return(seedv-1)/2147483646};const R=(a,b)=>a+rnd()*(b-a);
+const cv=document.getElementById('cv');
+const engine=new B.Engine(cv,true,{preserveDrawingBuffer:true,stencil:true,antialias:true},true);
+const scene=new B.Scene(engine);
+scene.clearColor=new B.Color4(.05,.015,.02,1);
+scene.ambientColor=C('#3a2018');
+scene.fogMode=B.Scene.FOGMODE_EXP2;scene.fogDensity=.011;scene.fogColor=C('#2a0c06');
+
+/* ---------------- materials ---------------- */
+const MAT={};
+function mat(name,col,o){o=o||{};const m=new B.StandardMaterial(name,scene);m.diffuseColor=C(col);m.specularColor=C(o.spec||'#222222');m.specularPower=o.pow||24;
+  if(o.em)m.emissiveColor=C(o.em);if(o.amb)m.ambientColor=C(o.amb);else m.ambientColor=C(col).scale(.6);if(o.alpha!=null)m.alpha=o.alpha;if(o.noLight)m.disableLighting=true;MAT[name]=m;return m}
+mat('steel','#56606f',{spec:'#c8d2e0',pow:48});
+mat('steelDk','#2c323c',{spec:'#8b95a5',pow:40});
+mat('gold','#c98a1e',{spec:'#ffe2a0',pow:64});
+mat('skin','#c98f6a',{spec:'#3a2a20',pow:12});
+mat('leather','#3a2620',{spec:'#1a1210',pow:8});
+mat('bone','#e8dcc0',{spec:'#7a7060',pow:20});
+mat('visor','#050505',{spec:'#000000'});
+mat('eye','#ffb02e',{em:'#ffb02e',noLight:true});
+mat('cloth','#5a1a14',{spec:'#200808',pow:6});
+mat('fur','#3a2e28',{spec:'#000000'});
+mat('wood','#4a3020',{spec:'#1a1008',pow:10});
+mat('robo','#7e8794',{spec:'#d0d8e4',pow:56});
+mat('roboDk','#2a2f38',{spec:'#606a78',pow:30});
+mat('roboEye','#ff2b4a',{em:'#ff2b4a',noLight:true});
+mat('floor','#1c1214',{spec:'#3a2420',pow:16});
+mat('wall','#1a0a08',{spec:'#000000'});
+mat('lava','#ff6a13',{em:'#ff7a1a',noLight:true});
+mat('bolt','#fff3b0',{em:'#ffe27a',noLight:true});
+mat('wave','#ffcf6b',{em:'#ffb02e',noLight:true,alpha:.9});
+
+/* ---------------- arena: Ember Foundry in 3D ---------------- */
+function crackTex(){const t=new B.DynamicTexture('cracks',{width:1024,height:512},scene,true),g=t.getContext();
+  g.fillStyle='#000';g.fillRect(0,0,1024,512);g.lineCap='round';
+  for(let k=0;k<26;k++){let x=R(0,1024),y=R(0,512);g.strokeStyle='rgba(255,'+Math.floor(R(80,150))+',30,'+R(.35,.9)+')';g.lineWidth=R(1.5,4);g.beginPath();g.moveTo(x,y);for(let j=0;j<7;j++){x+=R(-60,60);y+=R(-25,25);g.lineTo(x,y)}g.stroke()}
+  t.update();t.uScale=3;t.vScale=2;return t}
+const ground=B.MeshBuilder.CreateGround('ground',{width:60,height:30,subdivisions:2},scene);ground.material=MAT.floor;ground.receiveShadows=true;
+MAT.floor.emissiveTexture=crackTex();MAT.floor.emissiveColor=C('#9a8a80');
+{const t=new B.DynamicTexture('plates',{width:1024,height:512},scene,true),g=t.getContext();g.fillStyle='#806a64';g.fillRect(0,0,1024,512);g.strokeStyle='#3a2a28';g.lineWidth=6;
+  for(let x=0;x<=1024;x+=128){g.beginPath();g.moveTo(x,0);g.lineTo(x,512);g.stroke()}for(let y=0;y<=512;y+=128){g.beginPath();g.moveTo(0,y);g.lineTo(1024,y);g.stroke()}
+  g.fillStyle='#4a3a38';for(let x=0;x<1024;x+=128)for(let y=0;y<512;y+=128){[[10,10],[118,10],[10,118],[118,118]].forEach(p=>{g.beginPath();g.arc(x+p[0],y+p[1],5,0,7);g.fill()})}
+  t.update();t.uScale=6;t.vScale=3;MAT.floor.diffuseTexture=t}
+// lava channel behind the fighters
+const lava=B.MeshBuilder.CreateGround('lava',{width:60,height:2.2},scene);lava.position.set(0,.02,7);lava.material=MAT.lava;
+const lavaEdge=B.MeshBuilder.CreateBox('edge',{width:60,height:.35,depth:.5},scene);lavaEdge.position.set(0,.17,5.7);lavaEdge.material=MAT.steelDk;lavaEdge.receiveShadows=true;
+// back wall of foundry silhouettes
+for(let x=-30;x<30;){const w=R(2,4.5),h=R(5,12);const b=B.MeshBuilder.CreateBox('bld',{width:w,height:h,depth:R(2,4)},scene);b.position.set(x+w/2,h/2,R(10.5,14));b.material=MAT.wall;
+  if(rnd()<.5){const ch=B.MeshBuilder.CreateCylinder('chim',{height:R(4,8),diameter:R(.6,1.1),tessellation:10},scene);ch.position.set(x+w*.4,h+2,b.position.z);ch.material=MAT.wall}x+=w+R(.2,1)}
+// gears
+const gears=[];function gear(x,y,z,r){const root=new B.TransformNode('gear',scene);root.position.set(x,y,z);const ring=B.MeshBuilder.CreateTorus('g',{diameter:r*2,thickness:r*.35,tessellation:32},scene);ring.rotation.x=Math.PI/2;ring.parent=root;ring.material=MAT.steelDk;
+  for(let i=0;i<14;i++){const a=i/14*Math.PI*2,t=B.MeshBuilder.CreateBox('t',{width:r*.32,height:r*.3,depth:r*.3},scene);t.parent=root;t.position.set(Math.cos(a)*r*1.12,Math.sin(a)*r*1.12,0);t.rotation.z=a;t.material=MAT.steelDk}
+  const hub=B.MeshBuilder.CreateCylinder('h',{height:r*.4,diameter:r*.5,tessellation:16},scene);hub.rotation.x=Math.PI/2;hub.parent=root;hub.material=MAT.steel;gears.push({root,sp:R(.15,.35)*(rnd()<.5?-1:1)})}
+gear(-9,5,9.5,2.6);gear(8.5,6.5,10,3.2);gear(4.5,3.2,9,1.4);gear(-14,3,8.5,1.8);
+// pillars with hanging chains
+for(const x of[-12,12]){const p=B.MeshBuilder.CreateBox('pil',{width:1.1,height:9,depth:1.1},scene);p.position.set(x,4.5,4.6);p.material=MAT.steelDk;p.receiveShadows=true;
+  const cap=B.MeshBuilder.CreateBox('cap',{width:1.5,height:.5,depth:1.5},scene);cap.position.set(x,9,4.6);cap.material=MAT.gold}
+for(let i=0;i<6;i++){const x=-10+i*4+R(-1,1),L=R(2,5);for(let k=0;k<L*4;k++){const l=B.MeshBuilder.CreateTorus('ch',{diameter:.22,thickness:.05,tessellation:10},scene);l.position.set(x,12-k*.18,R(5,6));l.rotation.y=k%2?Math.PI/2:0;l.rotation.x=Math.PI/2;l.material=MAT.steelDk}}
+
+/* ---------------- lights ---------------- */
+const hemi=new B.HemisphericLight('hemi',V(0,1,-.3),scene);hemi.intensity=.6;hemi.diffuse=C('#ffb890');hemi.groundColor=C('#2a1010');
+const key=new B.DirectionalLight('key',V(.45,-1,.65),scene);key.position=V(-8,14,-10);key.intensity=1.7;key.diffuse=C('#ffe2c4');key.specular=C('#ffffff');
+const rim=new B.PointLight('rim',V(0,2.5,6),scene);rim.diffuse=C('#ff6a1a');rim.intensity=2.2;rim.range=18;
+const fill=new B.PointLight('fill',V(-4,3,-6),scene);fill.diffuse=C('#7aa0ff');fill.intensity=.8;fill.range=20;
+const fxLight=new B.PointLight('fx',V(0,2,0),scene);fxLight.diffuse=C('#ffd36b');fxLight.intensity=0;fxLight.range=12;
+const shadows=new B.ShadowGenerator(2048,key);shadows.useBlurExponentialShadowMap=true;shadows.blurKernel=24;shadows.darkness=.25;
+const probe=new B.ReflectionProbe('probe',256,scene);probe.position=V(0,1.6,-1.5);probe.refreshRate=B.RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+scene.onReadyObservable.addOnce(()=>{scene.meshes.forEach(m=>{if(/^(ground|lava|edge|bld|chim|g|t|h|pil|cap|ch)$/.test(m.name))probe.renderList.push(m)});['steel','steelDk','gold','robo'].forEach(k=>{MAT[k].reflectionTexture=probe.cubeTexture;MAT[k].reflectionTexture.level=k==='gold'?.5:.35})});
+const glow=new B.GlowLayer('glow',scene,{mainTextureSamples:2,blurKernelSize:48});glow.intensity=.6;
+
+/* ---------------- characters: jointed figures built from armor pieces ---------------- */
+function node(name,parent,x,y,z){const n=new B.TransformNode(name,scene);n.parent=parent;n.position.set(x||0,y||0,z||0);return n}
+function piece(mesh,parent,m,x,y,z,sx,sy,sz){mesh.parent=parent;mesh.position.set(x||0,y||0,z||0);if(sx)mesh.scaling.set(sx,sy,sz);mesh.material=m;mesh.renderOutline=true;mesh.outlineWidth=.018;mesh.outlineColor=B.Color3.Black();shadows.addShadowCaster(mesh,false);return mesh}
+const box=(w,h,d)=>B.MeshBuilder.CreateBox('b',{width:w,height:h,depth:d},scene),cyl=(h,dt,db,t)=>B.MeshBuilder.CreateCylinder('c',{height:h,diameterTop:dt,diameterBottom:db,tessellation:t||14},scene),
+  sph=(d,s)=>B.MeshBuilder.CreateSphere('s',{diameter:d,segments:s||12},scene),cap=(h,r)=>B.MeshBuilder.CreateCapsule('p',{height:h,radius:r,tessellation:14,subdivisions:2},scene),tor=(d,t)=>B.MeshBuilder.CreateTorus('t',{diameter:d,thickness:t,tessellation:24},scene);
+
+function rig(o){// o: scale, materials, brakk = heavy armored build
+  const J={};const root=node('root');J.root=root;root.scaling.setAll(o.scale);const K=o.brakk?1:0;
+  const hips=J.hips=node('hips',root,0,1.0,0),spine=J.spine=node('spine',hips,0,.12,0),chest=J.chest=node('chest',spine,0,.42,0),neck=J.neck=node('neck',chest,0,.46,0),head=J.head=node('head',neck,0,.16,0);
+  const sw=K?.62:.47,sh=s=>node('sh',chest,0,.32,s*sw),el=p=>node('el',p,0,-.48,0),hand=p=>node('hand',p,0,-.46,0);
+  J.shR=sh(-1);J.elR=el(J.shR);J.hR=hand(J.elR);J.shL=sh(1);J.elL=el(J.shL);J.hL=hand(J.elL);
+  const th=s=>node('th',hips,0,-.04,s*(K?.26:.2)),kn=p=>node('kn',p,0,-.5,0);J.thR=th(-1);J.knR=kn(J.thR);J.thL=th(1);J.knL=kn(J.thL);
+  const m=o.m;
+  if(K){// ---- Brakk: siege juggernaut ----
+    piece(cyl(.4,.8,.66,12),hips,m.armor2,0,-.02,0,1,1,1.1);
+    piece(cyl(.42,.84,.8,12),spine,m.under,0,.2,0,1,1,1.1);
+    piece(tor(.86,.1),spine,m.trim,0,.02,0,1,1,1.1);piece(box(.2,.22,.12),spine,m.trim,.43,.02,0);
+    piece(cyl(.66,1.24,.86,12),chest,m.armor,0,.14,0,.78,1,1.12);                  // barrel chest plate
+    piece(cyl(.2,1.0,1.24,12),chest,m.armor2,0,.5,0,.78,1,1.12);                    // gorget ring
+    piece(box(.08,.5,.5),chest,m.trim,.48,.1,0);piece(box(.09,.12,.6),chest,m.trim,.47,.18,0);   // gold cross emblem
+    piece(box(.06,.78,.5),hips,m.cloth,.4,-.42,0).rotation.z=.08;                     // tabard
+    for(const s of[-1,1]){const t=piece(box(.46,.46,.08),hips,m.armor2,.05,-.34,s*.36);t.rotation.x=s*.18}
+    piece(cyl(.14,.34,.4),neck,m.under,0,0,0);
+    piece(sph(.56,16),head,m.armor,0,.18,0,1.05,1.12,1);piece(box(.16,.14,.4),head,m.visor,.25,.16,0);
+    piece(sph(.08,8),head,m.eye,.31,.17,-.08);piece(sph(.08,8),head,m.eye,.31,.17,.08);
+    piece(box(.05,.4,.07),head,m.trim,.28,.33,0);for(const s of[-1,1])piece(box(.24,.26,.06),head,m.armor2,.1,.02,s*.26);
+    for(const s of[-1,1]){const h=piece(cyl(.62,.03,.17,12),head,m.horn,-.02,.46,s*.32);h.rotation.x=-s*.9;h.rotation.z=.3;const tip=piece(cyl(.34,.01,.06,8),h,m.horn,0,.42,0);tip.rotation.x=-s*.6;tip.rotation.z=.25}
+    for(const s of['R','L']){const S=J['sh'+s],E=J['el'+s],H=J['h'+s];
+      piece(sph(.74,14),S,m.armor,0,.08,0,1.08,.72,1.08);piece(sph(.62,12),S,m.armor2,0,-.06,0,1.1,.6,1.1);piece(tor(.66,.06),S,m.trim,0,-.02,0,1.05,1,1.05);
+      piece(cap(.52,.18),S,m.limb,0,-.26,0);piece(cyl(.48,.38,.3,12),E,m.armor2,0,-.22,0);piece(tor(.38,.05),E,m.trim,0,-.04,0);piece(box(.12,.3,.3),E,m.armor,.12,-.2,0);piece(sph(.28,10),H,m.hand,0,-.04,0)}
+    for(const s of['R','L']){const T=J['th'+s],Kn=J['kn'+s];piece(cap(.6,.22),T,m.under,0,-.26,0);piece(box(.36,.42,.42),T,m.armor2,.05,-.2,0);
+      piece(sph(.28,10),Kn,m.armor,.1,0,0);piece(cyl(.52,.36,.3,12),Kn,m.armor2,0,-.24,0);piece(box(.48,.18,.34),Kn,m.armor2,.1,-.54,0);piece(box(.08,.1,.36),Kn,m.trim,.32,-.5,0)}
+  }else{// ---- training robot ----
+    piece(cyl(.34,.62,.5,10),hips,m.armor2,0,-.02,0,1,1,1.05);piece(box(.66,.36,.46),spine,m.under,0,.2,0);piece(cyl(.52,.86,.62,10),chest,m.armor,0,.14,0,.8,1,1.12);
+    piece(cyl(.12,.24,.26),neck,m.under,0,.02,0);piece(box(.4,.36,.36),head,m.armor,0,.16,0);piece(box(.06,.06,.26),head,m.eye,.2,.18,0);piece(cyl(.2,.02,.03,6),head,m.under,0,.42,0);
+    for(const s of['R','L']){const S=J['sh'+s],E=J['el'+s],H=J['h'+s];piece(sph(.34,12),S,m.armor,0,.06,0,1.05,.8,1.05);piece(cap(.5,.12),S,m.limb,0,-.24,0);piece(cyl(.42,.27,.22,12),E,m.armor2,0,-.22,0);piece(sph(.2,10),H,m.hand,0,-.04,0)}
+    for(const s of['R','L']){const T=J['th'+s],Kn=J['kn'+s];piece(cap(.56,.15),T,m.under,0,-.26,0);piece(sph(.2,8),Kn,m.armor,.06,0,0);piece(cyl(.48,.26,.22,12),Kn,m.armor2,0,-.24,0);piece(box(.36,.14,.24),Kn,m.armor2,.08,-.52,0)}}
+  return J}
+const brakk=rig({scale:1.12,brakk:1,m:{armor:MAT.steel,armor2:MAT.steelDk,under:MAT.leather,trim:MAT.gold,visor:MAT.visor,eye:MAT.eye,horn:MAT.bone,limb:MAT.skin,hand:MAT.steelDk,cloth:MAT.cloth}});
+const dummy=rig({scale:1.0,m:{armor:MAT.robo,armor2:MAT.roboDk,under:MAT.roboDk,trim:MAT.roboDk,visor:MAT.visor,eye:MAT.roboEye,horn:MAT.robo,limb:MAT.robo,hand:MAT.roboDk}});
+dummy.root.rotation.y=Math.PI;
+// war hammer in Brakk's right hand: handle along the forearm line, head across it
+const hammer=node('hammer',brakk.hR,0,-.02,0);
+piece(cyl(1.5,.075,.09,10),hammer,MAT.wood,0,-.55,0);piece(tor(.11,.035),hammer,MAT.gold,0,-.02,0);piece(tor(.11,.035),hammer,MAT.gold,0,-1.1,0);
+const hHead=node('hhead',hammer,0,-1.36,0);piece(box(.8,.5,.5),hHead,MAT.steel,0,0,0);for(const s of[-1,1])piece(box(.1,.58,.58),hHead,MAT.gold,s*.3,0,0);
+piece(box(.14,.2,.2),hHead,MAT.eye,0,0,-.21);
+const hammerTip=node('tip',hHead,0,0,0);
+
+/* ---------------- poses (degrees; z>0 swings a limb forward/up, chest z<0 leans forward) ---------------- */
+const P={
+ guard:{hips:[0,0,0],spine:[0,-10,-6],chest:[0,0,-4],head:[0,10,4],shR:[-20,0,40],elR:[0,0,75],shL:[20,0,55],elL:[0,0,70],thR:[0,0,-14],knR:[0,0,-16],thL:[0,0,26],knL:[0,0,-22],hammer:[0,0,-95],y:-.05},
+ guard2:{hips:[0,0,0],spine:[0,-10,-8],chest:[0,0,-6],head:[0,10,6],shR:[-20,0,36],elR:[0,0,80],shL:[20,0,50],elL:[0,0,75],thR:[0,0,-16],knR:[0,0,-22],thL:[0,0,24],knL:[0,0,-28],hammer:[0,0,-92],y:-.09},
+ windup:{hips:[0,-20,0],spine:[0,-25,10],chest:[0,-10,8],head:[0,20,-6],shR:[-30,0,150],elR:[0,0,50],shL:[30,0,120],elL:[0,0,40],thR:[0,0,-22],knR:[0,0,-10],thL:[0,0,30],knL:[0,0,-20],hammer:[0,0,-60],y:-.04},
+ smash:{hips:[0,15,0],spine:[0,15,-28],chest:[0,10,-14],head:[0,-10,18],shR:[-10,0,70],elR:[0,0,10],shL:[10,0,60],elL:[0,0,20],thR:[0,0,-30],knR:[0,0,-20],thL:[0,0,44],knL:[0,0,-46],hammer:[0,0,-20],y:-.18},
+ sweepW:{hips:[0,35,0],spine:[0,30,0],chest:[0,15,-4],head:[0,-30,4],shR:[-70,0,80],elR:[0,0,30],shL:[40,0,70],elL:[0,0,60],thR:[0,0,-20],knR:[0,0,-14],thL:[0,0,28],knL:[0,0,-24],hammer:[0,0,-70],y:-.08},
+ sweep:{hips:[0,-30,0],spine:[0,-30,-10],chest:[0,-20,-8],head:[0,40,8],shR:[60,0,85],elR:[0,0,10],shL:[-20,0,70],elL:[0,0,50],thR:[0,0,-26],knR:[0,0,-18],thL:[0,0,36],knL:[0,0,-30],hammer:[0,0,-80],y:-.12},
+ upper:{hips:[0,0,0],spine:[0,0,8],chest:[0,0,10],head:[0,0,-8],shR:[-10,0,175],elR:[0,0,10],shL:[10,0,160],elL:[0,0,20],thR:[0,0,-10],knR:[0,0,-6],thL:[0,0,22],knL:[0,0,-12],hammer:[0,0,-150],y:.04},
+ charge:{hips:[0,0,0],spine:[0,0,6],chest:[0,0,8],head:[0,0,-14],shR:[-15,0,178],elR:[0,0,4],shL:[15,0,170],elL:[0,0,10],thR:[0,0,-26],knR:[0,0,-34],thL:[0,0,26],knL:[0,0,-34],hammer:[0,0,-175],y:-.22},
+ leap:{hips:[0,0,0],spine:[0,0,4],chest:[0,0,8],head:[0,0,-6],shR:[-15,0,170],elR:[0,0,30],shL:[15,0,160],elL:[0,0,40],thR:[0,0,30],knR:[0,0,-90],thL:[0,0,60],knL:[0,0,-100],hammer:[0,0,-120],y:0},
+ victory:{hips:[0,0,0],spine:[0,-20,4],chest:[0,-10,6],head:[0,20,-10],shR:[-10,0,175],elR:[0,0,8],shL:[30,0,40],elL:[0,0,90],thR:[0,0,-12],knR:[0,0,-4],thL:[0,0,16],knL:[0,0,-6],hammer:[0,0,-178],y:.02},
+ // dummy
+ dGuard:{spine:[0,0,-4],head:[0,0,0],shR:[0,0,60],elR:[0,0,80],shL:[0,0,50],elL:[0,0,90],thR:[0,0,-10],knR:[0,0,-12],thL:[0,0,18],knL:[0,0,-16],y:-.04},
+ dBlock:{spine:[0,0,4],head:[0,0,-10],shR:[0,0,95],elR:[0,0,110],shL:[0,0,90],elL:[0,0,115],thR:[0,0,-14],knR:[0,0,-20],thL:[0,0,22],knL:[0,0,-24],y:-.1},
+ dHit:{spine:[0,15,24],head:[0,20,-20],shR:[-30,0,-20],elR:[0,0,30],shL:[30,0,-10],elL:[0,0,40],thR:[0,0,-26],knR:[0,0,-6],thL:[0,0,8],knL:[0,0,-10],y:-.02},
+ dStagger:{spine:[0,-10,34],head:[0,-25,-26],shR:[-60,0,-40],elR:[0,0,20],shL:[60,0,-30],elL:[0,0,30],thR:[0,0,-34],knR:[0,0,-20],thL:[0,0,4],knL:[0,0,-30],y:-.12},
+ dLaunch:{spine:[0,0,40],head:[0,0,-30],shR:[-80,0,-60],elR:[0,0,20],shL:[80,0,-50],elL:[0,0,20],thR:[0,0,-40],knR:[0,0,-40],thL:[0,0,-20],knL:[0,0,-50],y:0},
+};
+const JN=['hips','spine','chest','head','shR','elR','shL','elL','thR','knR','thL','knL'];
+function blend(a,b,u){const o={};for(const k in a){const x=a[k],y=b[k]||x;o[k]=Array.isArray(x)?x.map((v,i)=>lerp(v,y[i],u)):lerp(x,y,u)}return o}
+function apply(J,p,ham){for(const k of JN){const r=p[k];if(r&&J[k])J[k].rotation.set(r[0]*D2R,r[1]*D2R,r[2]*D2R)}if(ham&&p.hammer)hammer.rotation.set(p.hammer[0]*D2R,p.hammer[1]*D2R,p.hammer[2]*D2R)}
+// keyframe tracks: [time, pose, ease]
+function track(keys,t){let i=0;while(i<keys.length-1&&keys[i+1][0]<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];if(a===b||t<=a[0])return P[a[1]];
+  const u=clamp((t-a[0])/(b[0]-a[0]),0,1),f=b[2]==='out'?easeOut(u):b[2]==='back'?easeBack(u):b[2]==='lin'?u:ease(u);return blend(P[a[1]],P[b[1]],f)}
+function num(keys,t){let i=0;while(i<keys.length-1&&keys[i+1][0]<=t)i++;const a=keys[i],b=keys[Math.min(i+1,keys.length-1)];if(a===b||t<=a[0])return a[1];
+  const u=clamp((t-a[0])/(b[0]-a[0]),0,1),f=b[2]==='out'?easeOut(u):b[2]==='back'?easeBack(u):b[2]==='lin'?u:ease(u);return lerp(a[1],b[1],f)}
+
+/* ---------------- the demo timeline (seconds) ---------------- */
+const T_END=14;
+const BK=[[0,'guard'],[.9,'guard2'],[1.8,'guard'],[2.7,'guard2'],[3.1,'guard'],
+  [3.35,'windup','out'],[3.6,'smash','back'],[3.95,'smash'],[4.15,'sweepW','out'],[4.4,'sweep','back'],[4.7,'sweep'],[4.9,'windup','out'],[5.1,'upper','back'],[5.5,'guard'],
+  [6.0,'windup','out'],[6.55,'windup'],[6.75,'smash','back'],[7.3,'guard'],
+  [7.9,'charge','out'],[9.3,'charge'],[9.6,'leap','out'],[10.05,'windup','out'],[10.25,'smash','back'],[11.2,'smash'],[12.2,'victory','out'],[14,'victory']];
+const BX=[[0,-1.6],[3.1,-1.6],[3.5,-1.25,'out'],[5.5,-1.4],[6.6,-1.4],[6.8,-1.05,'out'],[7.4,-1.5],[9.3,-1.5],[10.25,-.6,'out'],[12,-.8],[14,-.8]];
+const BY=[[0,0],[9.3,0],[9.75,1.9,'out'],[10.25,0,'lin'],[14,0]];
+const DK=[[0,'dGuard'],[3.0,'dGuard'],[3.6,'dGuard'],[3.66,'dHit','out'],[4.1,'dGuard'],[4.42,'dGuard'],[4.48,'dHit','out'],[5.12,'dHit'],[5.18,'dStagger','out'],[5.9,'dBlock'],[6.75,'dBlock'],[6.81,'dStagger','out'],[7.6,'dGuard'],
+  [10.25,'dGuard'],[10.31,'dLaunch','out'],[11.6,'dLaunch'],[12.4,'dStagger'],[14,'dStagger']];
+const DX=[[0,1.6],[3.62,1.6],[3.8,1.95,'out'],[4.48,1.95],[4.65,2.3,'out'],[5.15,2.3],[5.5,3.0,'out'],[6.0,2.3],[6.75,2.3],[7.1,3.1,'out'],[8,2.5],[10.25,2.5],[11.2,6.2,'out'],[14,6.4]];
+const DY=[[0,0],[10.25,0],[10.7,2.6,'out'],[11.25,0,'lin'],[11.45,.35,'out'],[11.65,0,'lin'],[14,0]];
+const DR=[[0,0],[10.25,0],[11.25,-110,'lin'],[11.65,-90,'out'],[14,-90]];
+// camera shots: alpha, beta, radius, target x/y
+const CAM=[[0,-.8,1.52,4.0,-1.3,1.9],[2.4,-1.2,1.44,5.2,-.9,1.7,'in'],[3.0,-1.62,1.38,6.6,-.1,1.55],[5.6,-1.5,1.36,6.4,.3,1.5],[7.6,-1.55,1.38,6.6,0,1.6],
+  [8.0,-.95,1.66,4.4,-1.4,2.3],[9.3,-.8,1.72,4.0,-1.4,2.7],[9.9,-1.6,1.42,6.0,-.3,1.7],[10.3,-1.55,1.36,7.4,.6,1.4],[11.6,-1.48,1.32,8.2,1.5,1.4],[12.2,-1.15,1.42,6.2,-.6,1.9],[14,-.9,1.40,5.8,-.6,1.9]];
+
+/* ---------------- effects ---------------- */
+function spriteTex(){const t=new B.DynamicTexture('spark',{width:64,height:64},scene,false),g=t.getContext(),q=g.createRadialGradient(32,32,0,32,32,32);q.addColorStop(0,'rgba(255,255,255,1)');q.addColorStop(.35,'rgba(255,255,255,.6)');q.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=q;g.fillRect(0,0,64,64);t.hasAlpha=true;t.update();return t}
+const SPK=spriteTex();
+function ps(name,cap,o){const p=new B.ParticleSystem(name,cap,scene);p.particleTexture=SPK;p.blendMode=B.ParticleSystem.BLENDMODE_ADD;p.emitter=V(0,0,0);
+  p.minEmitBox=V(-.05,-.05,-.05);p.maxEmitBox=V(.05,.05,.05);Object.assign(p,o);p.manualEmitCount=0;p.start();return p}
+const sparks=ps('sparks',600,{color1:new B.Color4(1,.85,.4,1),color2:new B.Color4(1,.55,.15,1),colorDead:new B.Color4(.4,.1,0,0),minSize:.05,maxSize:.16,minLifeTime:.18,maxLifeTime:.5,minEmitPower:5,maxEmitPower:12,
+  direction1:V(-1,1.2,-1),direction2:V(1,.2,1),gravity:V(0,-14,0),updateSpeed:.016});
+const dust=ps('dust',400,{color1:new B.Color4(.5,.42,.36,.5),color2:new B.Color4(.35,.3,.26,.4),colorDead:new B.Color4(.2,.18,.16,0),minSize:.5,maxSize:1.3,minLifeTime:.6,maxLifeTime:1.3,minEmitPower:2,maxEmitPower:6,
+  direction1:V(-1,.15,-1),direction2:V(1,.5,1),gravity:V(0,-.5,0),updateSpeed:.016});dust.blendMode=B.ParticleSystem.BLENDMODE_STANDARD;
+const embers=ps('embers',500,{color1:new B.Color4(1,.6,.2,1),color2:new B.Color4(1,.35,.1,1),colorDead:new B.Color4(.3,.05,0,0),minSize:.03,maxSize:.08,minLifeTime:2,maxLifeTime:4,minEmitPower:.4,maxEmitPower:1,
+  direction1:V(-.4,1,-.2),direction2:V(.4,1.6,.2),gravity:V(0,.15,0),updateSpeed:.016,emitRate:70});embers.emitter=V(0,0,6.5);embers.minEmitBox=V(-20,0,-.8);embers.maxEmitBox=V(20,.3,.8);
+const charge=ps('charge',300,{color1:new B.Color4(1,.9,.5,1),color2:new B.Color4(1,.7,.2,1),colorDead:new B.Color4(1,.5,0,0),minSize:.06,maxSize:.16,minLifeTime:.25,maxLifeTime:.45,minEmitPower:-3,maxEmitPower:-1.5,
+  direction1:V(-1,-1,-1),direction2:V(1,1,1),gravity:V(0,0,0),updateSpeed:.016,emitRate:0});charge.createSphereEmitter(1.4,0);
+function burst(p,pos,n){p.emitter=pos.clone?pos.clone():pos;p.manualEmitCount=n}
+const waves=[];function shock(pos,col,max,thick){const t=B.MeshBuilder.CreateTorus('wave',{diameter:1,thickness:thick||.12,tessellation:48},scene);t.position=pos.clone();t.material=MAT.wave.clone('w');t.material.emissiveColor=C(col);waves.push({m:t,age:0,max});return t}
+// golden lightning around the raised hammer
+let bolts=[];function lightning(from,len,n){bolts.forEach(b=>b.dispose());bolts=[];for(let i=0;i<n;i++){const pts=[from.clone()];let p=from.clone();const dir=V(R(-1,1),R(-.6,1),R(-1,1)).normalize();
+  for(let k=0;k<7;k++){p=p.add(dir.scale(len/7)).add(V(R(-.18,.18),R(-.18,.18),R(-.18,.18)));pts.push(p)}const b=B.MeshBuilder.CreateTube('bolt',{path:pts,radius:R(.012,.03),tessellation:5},scene);b.material=MAT.bolt;bolts.push(b)}}
+// ground cracks spreading from the slam
+const crackMesh=B.MeshBuilder.CreateGround('crk',{width:9,height:9},scene);crackMesh.position.y=.025;const crackT=new B.DynamicTexture('ct',{width:512,height:512},scene,true);crackT.hasAlpha=true;
+const cm=new B.StandardMaterial('cm',scene);cm.diffuseTexture=crackT;cm.emissiveTexture=crackT;cm.emissiveColor=C('#ffffff');cm.disableLighting=true;cm.useAlphaFromDiffuseTexture=true;crackMesh.material=cm;crackMesh.isVisible=false;
+const crk=[];for(let k=0;k<14;k++){const pts=[[256,256]];let x=256,y=256,a=k/14*Math.PI*2+R(-.2,.2);for(let j=0;j<9;j++){a+=R(-.5,.5);const L=R(14,30);x+=Math.cos(a)*L;y+=Math.sin(a)*L;pts.push([x,y])}crk.push(pts)}
+function drawCracks(u,heat){const g=crackT.getContext();g.clearRect(0,0,512,512);g.lineCap='round';g.lineJoin='round';
+  crk.forEach(pts=>{const n=Math.max(1,Math.floor(u*(pts.length-1)));for(const [w,c] of [[10,'rgba(20,6,2,.95)'],[5,'rgba(255,'+Math.floor(120+100*heat)+',40,'+(.4+.6*heat)+')'],[2,'rgba(255,240,200,'+heat+')']]){g.lineWidth=w;g.strokeStyle=c;g.beginPath();g.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<=n;i++)g.lineTo(pts[i][0],pts[i][1]);g.stroke()}});crackT.update()}
+
+/* ---------------- camera & post ---------------- */
+const cam=new B.ArcRotateCamera('cam',-1.57,1.4,8,V(0,1.5,0),scene);cam.fov=.72;cam.minZ=.1;
+const pipe=new B.DefaultRenderingPipeline('pipe',true,scene,[cam]);
+pipe.bloomEnabled=true;pipe.bloomThreshold=.72;pipe.bloomWeight=.45;pipe.bloomKernel=64;pipe.bloomScale=.5;
+pipe.fxaaEnabled=true;pipe.imageProcessingEnabled=true;pipe.imageProcessing.contrast=1.25;pipe.imageProcessing.exposure=1.1;
+pipe.imageProcessing.vignetteEnabled=true;pipe.imageProcessing.vignetteWeight=2.6;pipe.imageProcessing.vignetteColor=new B.Color4(.1,0,0,0);
+pipe.chromaticAberrationEnabled=true;pipe.chromaticAberration.aberrationAmount=0;pipe.grainEnabled=true;pipe.grain.intensity=6;pipe.sharpenEnabled=true;pipe.sharpen.edgeAmount=.25;
+
+/* ---------------- frame update: everything is a function of the demo time t ---------------- */
+const ov=id=>document.getElementById(id);let t=0,prev=-1,trauma=0,flash=0;const fired=new Set();
+const EVENTS=[[3.6,'hit1'],[4.42,'hit2'],[5.12,'hit3'],[6.75,'heavy'],[7.9,'ult'],[10.25,'slam'],[11.25,'land']];
+function fire(e){const hp=hammerTip.getAbsolutePosition(),dp=dummy.chest.getAbsolutePosition();
+  if(e==='hit1'||e==='hit2'||e==='hit3'){burst(sparks,dp.add(V(-.35,0,0)),e==='hit3'?90:55);trauma+=e==='hit3'?.45:.3;flash=.25;fxLight.position=dp;fxLight.intensity=3;shock(dp.add(V(-.35,0,0)),'#ffd36b',2.2,.06).rotation.z=Math.PI/2;
+    if(e==='hit3')pow('KRANG!')}
+  if(e==='heavy'){burst(sparks,dp.add(V(-.4,-.2,0)),120);burst(dust,V(dp.x,0.1,0),40);trauma+=.7;flash=.4;fxLight.position=dp;fxLight.intensity=5;shock(V(dp.x-.3,.05,0),'#ffcf6b',5,.1);pow('GUARD BREAK!')}
+  if(e==='ult'){banner(1)}
+  if(e==='slam'){const p=V(hp.x,.05,0);burst(sparks,p.add(V(0,.3,0)),260);burst(dust,p,160);trauma=1;flash=1;fxLight.position=p.add(V(0,1,0));fxLight.intensity=9;shock(p,'#ffcf6b',14,.18);shock(p,'#ffffff',9,.08);
+    crackMesh.position.x=p.x;crackMesh.isVisible=true;pow('KRAKOOM!')}
+  if(e==='land'){burst(dust,V(dummy.root.position.x,.1,0),60);trauma+=.35}}
+let powT=-9,banT=-9;function pow(txt){ov('pow').textContent=txt;powT=t}function banner(){banT=t}
+function update(dt){t+=dt;
+  for(const [et,e] of EVENTS)if(t>=et&&!fired.has(e)){fired.add(e);fire(e)}
+  // fighters
+  const bp=track(BK,t);apply(brakk,bp,true);brakk.root.position.set(num(BX,t),bp.y+num(BY,t)+(t<7.9||t>12.2?Math.sin(t*2.6)*.012:0),0);brakk.hips.position.y=1.0;
+  const dp=track(DK,t);apply(dummy,dp,false);dummy.root.position.set(num(DX,t),dp.y+num(DY,t),0);dummy.root.rotation.z=num(DR,t)*D2R;
+  gears.forEach(g=>g.root.rotation.z+=g.sp*dt);
+  // ultimate: charge particles + lightning
+  const charging=t>7.9&&t<10.25;charge.emitRate=charging?220:0;charge.emitter=hammerTip.getAbsolutePosition();
+  if(charging&&Math.floor(t*30)!==Math.floor((t-dt)*30))lightning(hammerTip.getAbsolutePosition(),R(.9,1.6),t>8.6?6:3);else if(!charging&&bolts.length){bolts.forEach(b=>b.dispose());bolts=[]}
+  fxLight.intensity=Math.max(charging?2.5+Math.sin(t*40):0,fxLight.intensity-dt*14);if(charging)fxLight.position=hammerTip.getAbsolutePosition();
+  // shockwaves
+  for(let i=waves.length-1;i>=0;i--){const w=waves[i];w.age+=dt;const u=w.age/.55;if(u>=1){w.m.dispose();waves.splice(i,1);continue}const s=lerp(.3,w.max,easeOut(u));w.m.scaling.set(s,1+u,s);w.m.material.alpha=1-u}
+  if(crackMesh.isVisible){const u=clamp((t-10.25)/.35,0,1),heat=clamp(1-(t-10.6)/2.6,.25,1);drawCracks(u,heat)}
+  // camera with trauma shake
+  trauma=Math.max(0,trauma-dt*1.6);const sh=trauma*trauma;
+  cam.alpha=num(CAM.map(c=>[c[0],c[1],c[6]]),t)+Math.sin(t*37)*.012*sh;cam.beta=num(CAM.map(c=>[c[0],c[2]]),t)+Math.sin(t*41+1)*.01*sh;cam.radius=num(CAM.map(c=>[c[0],c[3]]),t);
+  cam.target.set(num(CAM.map(c=>[c[0],c[4]]),t)+Math.sin(t*53)*.08*sh,num(CAM.map(c=>[c[0],c[5]]),t)+Math.sin(t*47+2)*.08*sh,0);
+  // post: flash + chromatic hit
+  flash=Math.max(0,flash-dt*2.5);pipe.imageProcessing.exposure=1.1+flash*1.4;pipe.chromaticAberration.aberrationAmount=sh*60;pipe.bloomWeight=.45+flash*.5;
+  // overlays
+  ov('title').style.opacity=t<.3?t/.3:t<2.4?1:Math.max(0,1-(t-2.4)/.3);ov('title').style.transform='translateX('+(t<.3?(1-t/.3)*-40:0)+'px)';
+  const bu=t-banT;ov('banner').style.opacity=bu<0?0:bu<.15?bu/.15:bu<1.6?1:Math.max(0,1-(bu-1.6)/.3);ov('banner').style.transform='translateX('+(bu<.15?(1-bu/.15)*-60:0)+'%)';
+  const pu=t-powT;ov('pow').style.opacity=pu<0||pu>.75?0:pu>.55?1-(pu-.55)/.2:1;ov('pow').style.transform='translate(-50%,-50%) rotate(-8deg) scale('+(pu<.1?.4+pu*8:1.2)+')';
+}
+scene.useConstantAnimationDeltaTime=true;
+window.__demo={T_END,scene,engine,P,brakk,dummy,apply,step:(dt,render)=>{update(dt);if(render!==false)scene.render()},
+  pose:(name,dname)=>{apply(brakk,P[name],true);if(dname)apply(dummy,P[dname],false);scene.render()},cam,t:()=>t};
+if(!/record/.test(location.search)){scene.useConstantAnimationDeltaTime=false;let last=performance.now();
+  engine.runRenderLoop(()=>{const now=performance.now(),dt=Math.min(.05,(now-last)/1000);last=now;if(t>=T_END+.8){t=0;fired.clear();crackMesh.isVisible=false}update(dt);scene.render()})}
+addEventListener('resize',()=>engine.resize());
+})();
+</script>
+</body>
+</html>
