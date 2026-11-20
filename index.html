@@ -165,10 +165,9 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.04em;margin:0;t
 .tg .hp i{display:block;height:100%;background:#4ade80}
 .tg.dead{opacity:.3;filter:grayscale(1)}
 .tg .cd{position:absolute;inset:0;background:rgba(0,0,0,.7);display:grid;place-items:center;font-size:1.5em}
-.cb.fin{opacity:1!important;border-color:#fff!important;box-shadow:0 0 1.6em #ff3b3b,inset 0 0 .8em rgba(255,60,60,.6)!important;animation:finp .42s ease-in-out infinite alternate}
-#bBlock.fin{animation:finpb .42s ease-in-out infinite alternate}
-@keyframes finp{to{transform:scale(1.12)}}@keyframes finpb{to{transform:scale(1.12)}}
-@media (prefers-reduced-motion:reduce){.cb.fin,#bBlock.fin{animation:none}}
+#finpad{position:absolute;inset:0;touch-action:none;cursor:pointer}
+#stage.fin #sps,#stage.fin #bBlock,#stage.fin #tags{opacity:.12;transition:opacity .25s}
+
 #ov{position:absolute;inset:0;background:rgba(6,4,10,.8);display:flex;align-items:center;justify-content:center;padding:1em}
 .res{background:var(--panel);border:1px solid var(--line);border-radius:.8em;padding:1.4em 2em;text-align:center;max-width:34em;display:flex;flex-direction:column;gap:.7em;align-items:center}
 .res h1{font-size:3.4em;font-style:italic;line-height:1}
@@ -222,6 +221,7 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.04em;margin:0;t
     <div id="tags"></div>
     <button class="cb" id="bBlock" aria-label="Hold to block"><span>BLOCK</span></button>
     <div id="sps"></div>
+    <div id="finpad" hidden></div>
     <button class="cb" id="bPause" aria-label="Pause"><span>II</span></button>
     <div id="ov" hidden></div>
   </div>
@@ -991,16 +991,16 @@ function startFinish(d,w){B.phase='finish';B.result='win';B.projs=[];B.slow=.25;
   d.state='dazed';d.t=0;d.sp=null;d.alpha=1;d.flip=1;d.oy=0;d.warp=null;
   if(w.state==='special'||w.state==='heavy'||w.state==='attack'||w.state==='hit'||w.state==='stunned'){w.state='idle';w.sp=null;w.combo=0;w.frozen=false}
   w.alpha=1;w.flip=1;w.oy=0;w.warp=null;w.hold=false;w.fx=[];
-  const pool=['a','b','s0','s1','s2'],seq=[];while(seq.length<4){const k=pool[Math.floor(R()*pool.length)];if(k!==seq[seq.length-1])seq.push(k)}
-  B.fin={t:0,seq,i:0,dur:5.2,lock:.75,state:'input',d,w,ct:0,k:0,el:ELEM[w.c.pas]||'fire',err:0};
+  const pool=['su','sd','sl','sr','su','sd','sl','sr','a','a'],seq=[];while(seq.length<4){const k=pool[Math.floor(R()*pool.length)];if(k!==seq[seq.length-1])seq.push(k)}
+  B.fin={t:0,seq,i:0,dur:7,lock:.6,pop:0,state:'input',d,w,ct:0,k:0,el:ELEM[w.c.pas]||'fire',err:0};
   setTimeout(()=>sfx('finish'),250)}
 function finInput(k){const F=B&&B.fin;if(!F||F.state!=='input'||F.t<F.lock)return;
-  if(k===F.seq[F.i]){sfx('finstep',F.i);F.i++;ring(W/2-((F.seq.length-1)/2-F.i+1)*120,214,'#ffe45c',60);if(F.i>=F.seq.length)finGo()}
-  else{F.err=.35;sfx('finfail');finFail()}}
+  if(k===F.seq[F.i]){sfx('finstep',F.i);F.i++;F.pop=0;ring(W/2,290,'#ffe45c',170);burst(W/2,290,16,'#ffe45c',260,.4,3.5,0);if(F.i>=F.seq.length)finGo()}
+  else{F.err=.45;F.t+=.7;sfx('finfail')}}
 function finFail(){const F=B.fin;F.state='fail';F.d.state='ko';F.d.t=0;endBattle(1)}
 function finGo(){const F=B.fin;F.state='go';F.ct=0;F.k=0;B.st.fin=true;B.slow=0;const w=F.w;w.state='fin';w.t=0;w.sp=null;
   B.banners.push({txt:'FURY FINISH',side:0,t:0,col:'#e5383b',ult:true});SPX.cast(w,w.c.moves[2]);ring(posX(w),GY-90,w.c.moves[2].col,190)}
-function finTick(dt){const F=B.fin;if(!F)return;F.t+=dt;F.err=Math.max(0,F.err-dt);
+function finTick(dt){const F=B.fin;if(!F)return;F.t+=dt;F.pop+=dt;F.err=Math.max(0,F.err-dt);
   if(F.state==='input'){if(F.t>F.dur){sfx('finfail');finFail()}return}
   if(F.state!=='go')return;F.ct+=dt;const w=F.w,d=F.d,mv=w.c.moves[2],ct=F.ct,el=F.el;
   const cols=[mv.col,w.c.L.accent,'#ffffff'].concat(el==='fire'?['#3a1a12']:el==='shadow'||el==='rune'?['#12081a']:[]);
@@ -1237,17 +1237,25 @@ function drawCombos(g){for(let s=0;s<2;s++){const c=B.cc[s];if(c.vis<2||c.fade<=
   g.save();g.globalAlpha=Math.min(1,c.fade*1.4);g.translate(x,262);g.rotate(s?.06:-.06);g.scale(sc,sc);g.textAlign='center';g.textBaseline='alphabetic';
   g.font='italic 54px '+DF;otext(g,String(c.vis),-22,0,f?f.c.L.accent:'#ffe45c',7);g.font='italic 24px '+DF;otext(g,'HITS',34,-2,'#ffffff',5);
   if(c.dmg>0&&c.n){g.font='bold 13px system-ui,sans-serif';otext(g,c.dmg.toLocaleString()+' DMG',6,20,'#ffe45c',3)}g.restore()}}
-const FINLBL={a:['TAP','SPACE'],b:['BLOCK','S']};
-function drawFinish(g){const F=B.fin;if(!F)return;g.save();g.textAlign='center';g.textBaseline='alphabetic';
-  if(F.state==='input'){const pulse=1+Math.sin(B.time*14)*.04,f=act(0);g.save();g.translate(W/2,170);g.scale(pulse,pulse);g.font='italic 64px '+DF;otext(g,'END THEM!',0,0,'#e5383b',9);g.restore();
-    const n=F.seq.length,cw=112,gap=8,x0=W/2-(n*cw+(n-1)*gap)/2;
-    F.seq.forEach((k,i)=>{const x=x0+i*(cw+gap),y=190,done=i<F.i,cur=i===F.i,lb=k[0]==='s'?[f.c.moves[+k[1]].name.toUpperCase(),k[1]*1+1+'']:FINLBL[k];
-      g.fillStyle=done?'rgba(61,219,196,.9)':cur?'rgba(255,228,92,.95)':'rgba(14,10,20,.85)';rr(g,x,y,cw,48,8);g.fill();g.lineWidth=cur?3:2;g.strokeStyle=cur?'#ffffff':'rgba(255,255,255,.4)';g.stroke();
-      g.fillStyle=done||cur?'#160f05':'#ffffff';let fs=17;g.font=fs+'px '+DF;while(g.measureText(lb[0]).width>cw-12&&fs>9){fs--;g.font=fs+'px '+DF}g.fillText(done?'✓':lb[0],x+cw/2,y+24);
-      g.font='bold 10px system-ui,sans-serif';g.fillText(done?'':'KEY '+lb[1],x+cw/2,y+40)});
-    const left=clamp(1-F.t/F.dur,0,1);g.fillStyle='rgba(8,6,12,.8)';g.fillRect(W/2-150,250,300,8);g.fillStyle=left>.3?'#ffe45c':'#e5383b';g.fillRect(W/2-150,250,300*left,8);
-    if(F.t<F.lock){g.globalAlpha=.8;g.font='600 13px system-ui,sans-serif';otext(g,'Enter the sequence to perform a Fury Finish',W/2,280,'#ffffff',3)}
-    if(F.seq[F.i]==='a'){g.globalAlpha=.6+.4*Math.sin(B.time*10);g.font='italic 22px '+DF;otext(g,'TAP THE ARENA',W/2,300,'#ffffff',5)}}
+const FINSTEP={su:['SWIPE UP','↑',-Math.PI/2],sd:['SWIPE DOWN','↓',Math.PI/2],sl:['SWIPE LEFT','←',Math.PI],sr:['SWIPE RIGHT','→',0],a:['TAP!','SPACE']};
+function finArrow(g,ang,t){g.save();g.rotate(ang);for(let k=2;k>=0;k--){const u=((t*1.5+k*.18)%1),off=-34+u*58,al=(k?.28:1)*Math.sin(Math.PI*u);if(al<=0)continue;g.save();g.globalAlpha*=al;g.translate(off,0);
+  g.beginPath();g.moveTo(-46,-13);g.lineTo(6,-13);g.lineTo(6,-34);g.lineTo(46,0);g.lineTo(6,34);g.lineTo(6,13);g.lineTo(-46,13);g.closePath();
+  g.lineJoin='round';g.lineWidth=9;g.strokeStyle=OUT;g.stroke();g.shadowColor='#ff3b3b';g.shadowBlur=22;g.fillStyle='#ffffff';g.fill();g.restore()}g.restore()}
+function finTap(g,t){const u=(t*1.6)%1;g.save();g.strokeStyle='rgba(255,228,92,'+(1-u)+')';g.lineWidth=6;g.beginPath();g.arc(0,0,22+u*44,0,7);g.stroke();
+  const s=1-.12*Math.sin(t*10);g.scale(s,s);g.shadowColor='#ff3b3b';g.shadowBlur=22;g.fillStyle='#ffffff';g.beginPath();g.arc(0,0,28,0,7);g.fill();g.shadowBlur=0;g.lineWidth=6;g.strokeStyle=OUT;g.stroke();g.restore()}
+function drawFinish(g){const F=B.fin;if(!F||F.state!=='input')return;g.save();g.textAlign='center';g.textBaseline='alphabetic';
+  g.fillStyle='rgba(4,2,10,.5)';g.fillRect(0,0,W,H);
+  const ready=F.t>=F.lock,k=F.seq[F.i],st=FINSTEP[k];
+  g.save();g.translate(W/2,150);const ps=1+Math.sin(B.time*12)*.03;g.scale(ps,ps);g.font='italic 58px '+DF;otext(g,'END THEM!',0,0,'#e5383b',9);g.restore();
+  const pe=Math.min(1,F.pop/.18),sc=ready?1+.35*(1-pe)*(1-pe):.9,sh=F.err>0?Math.sin(F.err*70)*F.err*26:0,cx=W/2+sh,cy=290,cw=360,ch=190;
+  g.save();g.translate(cx,cy);g.scale(sc,sc);g.globalAlpha=ready?1:.55;
+  g.fillStyle='rgba(14,10,20,.92)';rr(g,-cw/2,-ch/2,cw,ch,18);g.fill();g.lineWidth=5;g.strokeStyle=F.err>0?'#e5383b':'#ffe45c';g.stroke();
+  g.save();g.translate(0,-28);if(k==='a')finTap(g,B.time);else finArrow(g,st[2],B.time);g.restore();
+  g.font='italic 44px '+DF;otext(g,st[0],0,62,F.err>0?'#e5383b':'#ffffff',7);
+  g.font='600 13px system-ui,sans-serif';otext(g,ready?(k==='a'?'Tap anywhere  ·  or press SPACE':'Swipe anywhere on screen  ·  or press '+st[1]):'Get ready…',0,84,'rgba(255,255,255,.8)',3);
+  g.restore();
+  const n=F.seq.length;for(let i=0;i<n;i++){const x=W/2+(i-(n-1)/2)*30,y=cy+ch/2+24;g.beginPath();g.arc(x,y,9,0,7);g.fillStyle=i<F.i?'#3ddbc4':i===F.i?'#ffe45c':'rgba(255,255,255,.2)';g.fill();g.lineWidth=2.5;g.strokeStyle=OUT;g.stroke()}
+  const left=clamp(1-F.t/F.dur,0,1),by=cy+ch/2+44;g.fillStyle='rgba(8,6,12,.85)';rr(g,W/2-180,by,360,12,6);g.fill();g.fillStyle=left>.3?'#ffe45c':'#e5383b';if(left>0){rr(g,W/2-180,by,360*left,12,6);g.fill()}
   g.restore()}
 function render(){const g=G;g.setTransform(Q,0,0,Q,0,0);g.globalAlpha=1;g.globalCompositeOperation='source-over';
   const sx=B.shake?rnd(-1,1)*B.shake:0,sy=B.shake?rnd(-1,1)*B.shake:0;g.save();g.translate(sx,sy);
@@ -1276,7 +1284,7 @@ function render(){const g=G;g.setTransform(Q,0,0,Q,0,0);g.globalAlpha=1;g.global
 }
 
 /* ================= fight controls ================= */
-const elFight=$('#fight'),elStage=$('#stage'),elSps=$('#sps'),elTags=$('#tags'),elOv=$('#ov'),elMenu=$('#menu');
+const elFin=$('#finpad'),elFight=$('#fight'),elStage=$('#stage'),elSps=$('#sps'),elTags=$('#tags'),elOv=$('#ov'),elMenu=$('#menu');
 let running=false,last=0;
 function resize(){const cs=getComputedStyle(elFight),pw=innerWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight),ph=innerHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom);const w=Math.max(200,Math.min(pw,ph*16/9));elStage.style.width=w+'px';elStage.style.fontSize=(w/60)+'px';Q=Math.min(2,Math.max(1,(window.devicePixelRatio||1)*w/W));Q=Math.round(Q*4)/4;cv.width=W*Q;cv.height=H*Q}
 addEventListener('resize',()=>{if(!elFight.hidden)resize()});
@@ -1285,18 +1293,23 @@ function syncCtl(){const f=act(0),tm=B.T[0];
   if(B.ctlFor!==f){B.ctlFor=f;
     elSps.innerHTML=f.c.moves.map((m,i)=>'<button class="cb sp'+(m.cost===3?' u':'')+'" data-i="'+i+'" aria-label="'+m.name+'"><b>'+m.name+'</b><span class="pw">'+'<i></i>'.repeat(m.cost)+'</span></button>').join('');
     elTags.innerHTML=tm.fs.map((m,i)=>i===tm.act?'':'<button class="cb tg" data-i="'+i+'" aria-label="Tag in '+m.c.name+'"><img src="'+IMG[m.cid].head+'" alt=""><span class="hp"><i></i></span><span class="cd" hidden></span></button>').join('')}
-  const ok=B.phase==='fight',F=B.phase==='finish'&&B.fin&&B.fin.state==='input'?B.fin:null,want=F?F.seq[F.i]:null;
-  elSps.querySelectorAll('.sp').forEach((b,i)=>{b.classList.toggle('on',ok&&f.power>=f.c.moves[i].cost);b.classList.toggle('fin',want==='s'+i)});bBlock.classList.toggle('fin',want==='b');
+  const ok=B.phase==='fight',finOn=B.phase==='finish'&&!!B.fin&&B.fin.state==='input';if(elFin.hidden===finOn){elFin.hidden=!finOn;elStage.classList.toggle('fin',finOn)}
+  elSps.querySelectorAll('.sp').forEach((b,i)=>b.classList.toggle('on',ok&&f.power>=f.c.moves[i].cost));
   elTags.querySelectorAll('.tg').forEach(b=>{const m=tm.fs[+b.dataset.i];b.classList.toggle('dead',m.hp<=0);b.querySelector('.hp i').style.width=(100*m.hp/m.maxHp)+'%';const cd=b.querySelector('.cd');if(tm.tagCd>0&&m.hp>0){cd.hidden=false;cd.textContent=Math.ceil(tm.tagCd)}else cd.hidden=true})}
 function inAttack(){if(!B||B.paused)return;if(B.phase==='finish'){finInput('a');return}if(B.phase!=='fight')return;const f=act(0);if(f.state==='attack')f.buf=true;f.want=.2}
 function inHeavy(){if(!B||B.paused||B.phase!=='fight')return;const f=act(0);if(!startHeavy(f)){f.wantH=.22;if(f.state==='attack')f.buf=false}}
-function inBlockPress(){if(!B||B.paused)return;if(B.phase==='finish'){finInput('b');return}const f=act(0);if(f.state==='hit')breaker(f)}
-function inSpecial(i){if(!B||B.paused)return;if(B.phase==='finish'){finInput('s'+i);return}if(!useSpecial(act(0),i))sfx('bad')}
+function inBlockPress(){if(!B||B.paused||B.phase==='finish')return;const f=act(0);if(f.state==='hit')breaker(f)}
+function inSpecial(i){if(!B||B.paused||B.phase==='finish')return;if(!useSpecial(act(0),i))sfx('bad')}
 function inTag(n){if(!B||B.paused)return;const tm=B.T[0],ids=tm.fs.map((m,i)=>i).filter(i=>i!==tm.act);if(ids[n]!=null)tag(0,ids[n])}
 const PTS=new Map();
 cv.addEventListener('pointerdown',e=>{e.preventDefault();audioKick();PTS.set(e.pointerId,{x:e.clientX,y:e.clientY,sw:false});inAttack()});
 cv.addEventListener('pointermove',e=>{const p=PTS.get(e.pointerId);if(!p||p.sw)return;if(Math.hypot(e.clientX-p.x,e.clientY-p.y)>Math.max(24,elStage.clientWidth*.04)){p.sw=true;inHeavy()}});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,e=>PTS.delete(e.pointerId)));
+const FPT=new Map();
+elFin.addEventListener('pointerdown',e=>{e.preventDefault();audioKick();FPT.set(e.pointerId,{x:e.clientX,y:e.clientY,sw:false});try{elFin.setPointerCapture(e.pointerId)}catch(x){}});
+elFin.addEventListener('pointermove',e=>{const p=FPT.get(e.pointerId);if(!p||p.sw)return;const dx=e.clientX-p.x,dy=e.clientY-p.y;if(Math.hypot(dx,dy)>Math.max(22,elStage.clientWidth*.035)){p.sw=true;finInput(Math.abs(dx)>Math.abs(dy)?(dx>0?'sr':'sl'):(dy>0?'sd':'su'))}});
+elFin.addEventListener('pointerup',e=>{const p=FPT.get(e.pointerId);FPT.delete(e.pointerId);if(p&&!p.sw&&B&&!B.paused)finInput('a')});
+elFin.addEventListener('pointercancel',e=>FPT.delete(e.pointerId));
 const bBlock=$('#bBlock');
 bBlock.addEventListener('pointerdown',e=>{e.preventDefault();audioKick();inBlockPress();INPUT.block=true;bBlock.classList.add('dn');try{bBlock.setPointerCapture(e.pointerId)}catch(x){}});
 ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>bBlock.addEventListener(ev,()=>{INPUT.block=false;bBlock.classList.remove('dn')}));
@@ -1304,7 +1317,9 @@ elSps.addEventListener('pointerdown',e=>{const b=e.target.closest('.sp');if(b){e
 elTags.addEventListener('pointerdown',e=>{const b=e.target.closest('.tg');if(b&&B&&!B.paused){e.preventDefault();audioKick();tag(0,+b.dataset.i)}});
 $('#bPause').addEventListener('click',()=>pause());
 elFight.addEventListener('contextmenu',e=>e.preventDefault());
-addEventListener('keydown',e=>{if(elFight.hidden||!B)return;const k=e.key.toLowerCase();if(e.repeat){if(k===' ')e.preventDefault();return}audioKick();
+const FKEY={arrowup:'su',arrowdown:'sd',arrowleft:'sl',arrowright:'sr',' ':'a',j:'a',f:'a'};
+addEventListener('keydown',e=>{if(elFight.hidden||!B)return;const k=e.key.toLowerCase();if(e.repeat){if(k===' '||FKEY[k])e.preventDefault();return}audioKick();
+  if(B.phase==='finish'&&!B.paused){if(FKEY[k]){e.preventDefault();finInput(FKEY[k])}else if(k==='p'||k==='escape')pause();return}
   if(k===' '||k==='j'||k==='f'){e.preventDefault();inAttack()}else if(k==='l'||k==='h'||k==='g')inHeavy();else if(k==='s'||k==='k'||k==='shift'){inBlockPress();INPUT.block=true}
   else if(k==='1'||k==='u')inSpecial(0);else if(k==='2'||k==='i')inSpecial(1);else if(k==='3'||k==='o')inSpecial(2);
   else if(k==='q')inTag(0);else if(k==='e')inTag(1);else if(k==='p'||k==='escape')pause()});
@@ -1355,7 +1370,7 @@ home(){makeHero();const owned=CHARS.filter(c=>S.chars[c.id].own).length;
   '<button class="mode" data-a="quick" style="--ac:#f6b93b"><b>Quick Battle</b><span>Pick an arena and a difficulty</span></button>'+
   '<button class="mode" data-a="go" data-s="roster" style="--ac:#3ddbc4"><b>Roster</b><span>'+owned+' of '+CHARS.length+' fighters. Level up and equip relics</span></button>'+
   '<button class="mode" data-a="go" data-s="shop" style="--ac:#c04dff"><b>Relic Forge</b><span>Buy and upgrade enhancers</span></button></nav>'+
-  '<section class="how"><h3>How to play</h3><ul><li><b>Attack:</b> tap the arena (or press Space). Keep tapping for a 3-hit combo.</li><li><b>Heavy:</b> swipe across the arena (or press L). Slow to start, but it smashes through a guard and leaves the enemy dazed. A quick jab interrupts it.</li><li><b>Block:</b> hold the Block button (or S). A blocked combo leaves the attacker open, so punish it. Press Block just as a hit lands for a <b>Perfect</b>: no damage, the attacker staggers, and you gain power.</li><li><b>Breaker:</b> getting comboed? Tap Block to burst free for 1 power bar.</li><li><b>Specials:</b> hits fill 3 power bars. Spend 1, 2 or 3 bars on each fighter\'s unique moves (keys 1, 2, 3). The 3-bar move cannot be blocked.</li><li><b>Tag:</b> tap a teammate portrait (Q or E) to swap in. The team with a fighter still standing wins.</li><li><b>Fury Finish:</b> knock out the last enemy and they are left reeling. Enter the sequence on screen before time runs out to finish them in style, for 25% bonus gold.</li><li><b>Grow:</b> gold from battles buys levels, move ranks, new fighters, relics and relic upgrades.</li></ul></section>'+
+  '<section class="how"><h3>How to play</h3><ul><li><b>Attack:</b> tap the arena (or press Space). Keep tapping for a 3-hit combo.</li><li><b>Heavy:</b> swipe across the arena (or press L). Slow to start, but it smashes through a guard and leaves the enemy dazed. A quick jab interrupts it.</li><li><b>Block:</b> hold the Block button (or S). A blocked combo leaves the attacker open, so punish it. Press Block just as a hit lands for a <b>Perfect</b>: no damage, the attacker staggers, and you gain power.</li><li><b>Breaker:</b> getting comboed? Tap Block to burst free for 1 power bar.</li><li><b>Specials:</b> hits fill 3 power bars. Spend 1, 2 or 3 bars on each fighter\'s unique moves (keys 1, 2, 3). The 3-bar move cannot be blocked.</li><li><b>Tag:</b> tap a teammate portrait (Q or E) to swap in. The team with a fighter still standing wins.</li><li><b>Fury Finish:</b> knock out the last enemy and they are left reeling. Follow the big prompts (swipe or tap anywhere on screen) before time runs out to finish them in style, for 25% bonus gold. A wrong move just costs a little time.</li><li><b>Grow:</b> gold from battles buys levels, move ranks, new fighters, relics and relic upgrades.</li></ul></section>'+
   '<p class="note">'+(CLOUD.on?'Progress is saved to your Claude account, so it follows you between devices.':'Progress is saved in this browser on this device.')+'</p><div class="foot"><button class="btn" data-a="mute">Sound: '+(S.mute?'Off':'On')+'</button><button class="btn'+(UI.resetArm?' red':'')+'" data-a="reset">'+(UI.resetArm?'Tap again to erase all progress':'Reset progress')+'</button></div>'},
 roster(){return header('Roster','home')+'<p class="note">Tap a fighter to upgrade, equip relics, or unlock.</p><div class="grid">'+CHARS.map(c=>fcard(c)).join('')+'</div>'},
 char(){const c=CH[UI.cid],st=S.chars[c.id],rel=relMap(c.id),cur=stats(c.id,st.lvl,rel),nx=stats(c.id,Math.min(MAXL,st.lvl+1),rel),lc=lvlCost(st.lvl);
