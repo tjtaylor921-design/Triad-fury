@@ -111,7 +111,10 @@ h1,h2,h3{font-family:var(--disp);font-weight:400;letter-spacing:.04em;margin:0;t
 .rcard{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--rc);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
 .rcard h3{font-size:17px;display:flex;gap:8px;align-items:center}
 .rcard p{margin:0;color:var(--muted);flex:1;font-size:14px}
-.rcard .own{font-size:13px;color:var(--muted)}
+.rcard .own{font-size:13px;color:var(--muted);margin-top:auto}
+.rcard p{flex:none}
+.rcard .bar{flex:none}
+.rcard h3 img.sh{width:30px;height:30px;border-radius:50%;border:2px solid var(--rc);flex:none}
 .grid.shop{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
 /* tower */
 .stages{display:flex;flex-direction:column;gap:8px}
@@ -376,11 +379,26 @@ const RELICS=[
 {id:'rift',pin:10,name:'Rift Crown',sym:'♚',col:'#ff3bd4',base:30,step:4,d:v=>'+'+v+'% attack, max HP and power gain.'},
 {id:'heart',story:1,name:'Heart of Cindervale',sym:'♦',col:'#ff9a2e',base:12,step:2,d:v=>'+'+v+'% damage, and heals '+v+'% of max HP whenever an enemy is knocked out.'},
 ];
+/* signature enhancers: one per fighter, only that fighter can equip it */
+const SIG={
+ kaida:{name:"Cindra's Ribbon",ender:'Last Ember',base:20,step:5,p:v=>'+'+v+'% damage to burning enemies.'},
+ brakk:{name:'Ironjaw Crest',ender:'Mountainfall',base:25,step:5,p:v=>'Takes a further '+v+'% less damage while blocking, and blocked hits charge his power.'},
+ sylphine:{name:"Oracle's Snowglass",ender:'Eternal Winter',base:12,step:3,p:v=>'Basic attacks have a '+v+'% chance to freeze for 0.8s.'},
+ nyx:{name:'Moonless Fang',ender:'Moonless Night',base:25,step:5,p:v=>'Critical hits heal her for '+v+'% of the damage.'},
+ hexley:{name:"Philosopher's Flask",ender:'Final Prescription',base:30,step:7.5,p:v=>'Poison he applies heals him for '+v+'% of its damage.'},
+ torque:{name:'Overdrive Core',ender:'Core Meltdown',base:15,step:3.75,p:v=>'Specials deal +'+v+'% damage, and he starts every battle with 1 power bar.'},
+ seraphel:{name:'Dawnbringer Plume',ender:"Dawn's Verdict",base:1,step:.25,p:v=>'Regenerates '+v+'% of max HP every second while fighting.'},
+ grimtide:{name:'Leviathan Hook',ender:'Call of the Deep',base:15,step:3.75,p:v=>'Basic attacks heal him for a further '+v+'% of damage dealt.'},
+ zhen:{name:'Lotus Prayer Beads',ender:'Thousand Winds',base:8,step:2,p:v=>'+'+v+'% extra chance to dodge basic attacks.'},
+ morrigan:{name:'Grimoire of Ash',ender:'Last Rite',base:30,step:7.5,p:v=>'Debuffs she applies last '+v+'% longer.'}};
+const sigStat=l=>10+2.5*(l-1);
+Object.keys(SIG).forEach(cid=>{const g=SIG[cid];RELICS.push({id:'sig_'+cid,sig:cid,name:g.name,sym:'✪',col:CHARS.find(c=>c.id===cid).L.accent,cost:2000,base:g.base,step:g.step,
+  d:(v,l)=>'+'+sigStat(l||1)+'% ATK and max HP. '+g.p(v)+' Ender: when the last enemy drops below 40% HP, 50% chance to unleash '+g.ender+' and end the match.'})});
 RELICS.forEach(r=>{if(r.pin)r.cost=1200+200*r.pin;if(r.story)r.cost=1500});
 const RL={};RELICS.forEach(r=>RL[r.id]=r);
 const PINREL=RELICS.filter(r=>r.pin).map(r=>r.id),MAXRL=5,PINMAX=100;
 const RV=(id,l)=>Math.round((RL[id].base+RL[id].step*(l-1))*100)/100;
-const rdesc=(id,l)=>RL[id].d(RV(id,l));
+const rdesc=(id,l)=>RL[id].d(RV(id,l),l);
 const upCost=(id,l)=>Math.round(RL[id].cost*(.5+.5*l)/10)*10;
 const STORY=[
 {t:'Sparks in the Foundry',arena:0,lvl:1,team:['kaida','brakk','sylphine'],foes:['torque','zhen','hexley'],
@@ -459,7 +477,7 @@ const equipped=rid=>CHARS.reduce((n,c)=>n+S.chars[c.id].relics.filter(r=>r===rid
 const avail=rid=>(S.inv[rid]||0)-equipped(rid);
 const rlvl=rid=>S.rl[rid]||1;
 const relMap=id=>{const o={};S.chars[id].relics.forEach(r=>{if(r)o[r]=rlvl(r)});return o};
-function stats(cid,lvl,rel){const c=CH[cid],m=1+.15*(lvl-1);let hp=c.hp*m,atk=c.atk*m;rel=rel||{};if(rel.whet)atk*=1+RV('whet',rel.whet)/100;if(rel.plate)hp*=1+RV('plate',rel.plate)/100;if(rel.rift){const v=1+RV('rift',rel.rift)/100;hp*=v;atk*=v}return{hp:Math.round(hp),atk:Math.round(atk)}}
+function stats(cid,lvl,rel){const c=CH[cid],m=1+.15*(lvl-1);let hp=c.hp*m,atk=c.atk*m;rel=rel||{};if(rel['sig_'+cid]){const v=1+sigStat(rel['sig_'+cid])/100;hp*=v;atk*=v}if(rel.whet)atk*=1+RV('whet',rel.whet)/100;if(rel.plate)hp*=1+RV('plate',rel.plate)/100;if(rel.rift){const v=1+RV('rift',rel.rift)/100;hp*=v;atk*=v}return{hp:Math.round(hp),atk:Math.round(atk)}}
 const isMaxed=cid=>{const s=S.chars[cid];return s.lvl>=MAXL&&s.ranks.every(r=>r>=MAXR)};
 function pinDef(n){const boss=n%10===0,r=seed(n*104729+7),pool=CHARS.map(c=>c.id);for(let i=pool.length-1;i>0;i--){const j=Math.floor(r()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
   const lvl=1+Math.floor(n*.13)+(boss?1:0),rank=Math.min(5,1+Math.floor(n/15)),nrel=n>=85?3:n>=55?2:n>=25?1:0,rl=Math.min(4,1+Math.floor(n/30));
@@ -926,10 +944,10 @@ const act=s=>B.T[s].fs[B.T[s].act];
 const foe=f=>act(1-f.side);
 const posX=f=>HOME[f.side]+FACE[f.side]*f.ox;
 function mkFighter(d,side,hpMul){const c=CH[d.cid],rel=d.relics||{},st=stats(d.cid,d.lvl,rel),mh=Math.round(st.hp*(hpMul||1));
-  return{c,cid:d.cid,lvl:d.lvl,ranks:d.ranks,relics:rel,side,maxHp:mh,hp:mh,lag:mh,atk:st.atk,power:rel.cell?RV('cell',rel.cell):0,fx:[],shield:0,state:'bench',t:0,combo:0,buf:false,want:0,hitDone:false,blockedLast:false,stun:0,frozen:false,stunImm:0,sp:null,ox:-340,oy:0,alpha:1,flip:1,pose:Object.assign({},POSES.idle),flash:0,revived:false,haloUsed:false,hold:false,hitDur:0,recDur:0,auraT:0,blockT:0,pEl:true,parryCd:0,wantH:0,dis:0,gone:false}}
+  return{c,cid:d.cid,lvl:d.lvl,ranks:d.ranks,relics:rel,side,maxHp:mh,hp:mh,lag:mh,atk:st.atk,power:Math.max(rel.cell?RV('cell',rel.cell):0,rel.sig_torque?1:0),fx:[],shield:0,state:'bench',t:0,combo:0,buf:false,want:0,hitDone:false,blockedLast:false,stun:0,frozen:false,stunImm:0,sp:null,ox:-340,oy:0,alpha:1,flip:1,pose:Object.assign({},POSES.idle),flash:0,revived:false,haloUsed:false,hold:false,hitDur:0,recDur:0,auraT:0,blockT:0,pEl:true,parryCd:0,wantH:0,dis:0,gone:false}}
 function startBattle(cfg){
   B={cfg,T:[{fs:cfg.team.map(d=>mkFighter(d,0,1)),act:0,tagCd:0},{fs:cfg.enemies.map(e=>mkFighter(e,1,cfg.hpMul)),act:0,tagCd:0}],
-     time:0,phase:'intro',pt:0,parts:[],floats:[],projs:[],rings:[],vortices:[],banners:[],pows:[],shake:0,flash:0,slow:0,dim:0,ai:{timer:.5,hold:0},result:null,paused:false,shown:false,amb:ambInit(cfg.arena),rdt:0,ctlFor:null,hs:0,fin:null,cc:[{n:0,dmg:0,t:0,vis:0,fade:0,pop:0},{n:0,dmg:0,t:0,vis:0,fade:0,pop:0}],st:{max:0,perfect:0,breakers:0,guard:0,heavy:0,fin:false,first:false}};
+     time:0,phase:'intro',pt:0,parts:[],floats:[],projs:[],rings:[],vortices:[],banners:[],pows:[],shake:0,flash:0,slow:0,dim:0,ai:{timer:.5,hold:0},result:null,paused:false,shown:false,amb:ambInit(cfg.arena),rdt:0,ctlFor:null,hs:0,fin:null,cc:[{n:0,dmg:0,t:0,vis:0,fade:0,pop:0},{n:0,dmg:0,t:0,vis:0,fade:0,pop:0}],st:{max:0,perfect:0,breakers:0,guard:0,heavy:0,fin:false,ender:null,first:false}};
   enter(0,0);enter(1,0);INPUT.block=false;
 }
 function enter(side,idx){const tm=B.T[side],f=tm.fs[idx];tm.act=idx;f.state='enter';f.t=0;f.ox=-340;f.oy=0;f.alpha=1;f.flip=1;f.combo=0;f.hold=false;f.want=0;
@@ -998,8 +1016,12 @@ function finInput(k){const F=B&&B.fin;if(!F||F.state!=='input'||F.t<F.lock)retur
   if(k===F.seq[F.i]){sfx('finstep',F.i);F.i++;F.pop=0;ring(W/2,290,'#ffe45c',170);burst(W/2,290,16,'#ffe45c',260,.4,3.5,0);if(F.i>=F.seq.length)finGo()}
   else{F.err=.45;F.t+=.7;sfx('finfail')}}
 function finFail(){const F=B.fin;F.state='fail';F.d.state='ko';F.d.t=0;endBattle(1)}
-function finGo(){const F=B.fin;F.state='go';F.ct=0;F.k=0;B.st.fin=true;B.slow=0;const w=F.w;w.state='fin';w.t=0;w.sp=null;
-  B.banners.push({txt:'FURY FINISH',side:0,t:0,col:'#e5383b',ult:true});SPX.cast(w,w.c.moves[2]);ring(posX(w),GY-90,w.c.moves[2].col,190)}
+function finGo(ender){const F=B.fin;F.state='go';F.ct=0;F.k=0;if(ender){B.st.ender=ender;F.ender=ender}else B.st.fin=true;B.slow=0;const w=F.w;w.state='fin';w.t=0;w.sp=null;
+  B.banners.push({txt:ender?ender.toUpperCase():'FURY FINISH',side:0,t:0,col:ender?w.c.L.accent:'#e5383b',ult:true});SPX.cast(w,w.c.moves[2]);ring(posX(w),GY-90,w.c.moves[2].col,190)}
+function checkEnder(){const f=act(0),d=act(1);if(!f||!d||f.enderTry||f.hp<=0||!has(f,'sig_'+f.cid))return;
+  if(B.T[1].fs.filter(x=>x.hp>0).length!==1||d.hp<=0||d.hp/d.maxHp>=.4)return;
+  if(!['idle','attack','recover','block'].includes(f.state)||d.state==='enter'||d.state==='ko')return;
+  f.enderTry=true;if(R()<.5){d.hp=0;d.fx=[];d.shield=0;floatTxt(d,'SIGNATURE ENDER','#ffe45c',22);startFinish(d,f);finGo(SIG[f.cid].ender)}else floatTxt(f,'ENDER MISSED','#a79bb0',15)}
 function finTick(dt){const F=B.fin;if(!F)return;F.t+=dt;F.pop+=dt;F.err=Math.max(0,F.err-dt);
   if(F.state==='input'){if(F.t>F.dur){sfx('finfail');finFail()}return}
   if(F.state!=='go')return;F.ct+=dt;const w=F.w,d=F.d,mv=w.c.moves[2],ct=F.ct,el=F.el;
@@ -1027,15 +1049,15 @@ function dealDamage(a,d,base,o){let m=1;const crit=R()<.05+(a.c.pas==='nyx'?.25:
   if(a.c.pas==='sylphine'&&d.state==='stunned')m*=1.35;
   if(a.c.pas==='morrigan'&&(d.state==='stunned'||d.fx.some(e=>FXI[e.k].bad)))m*=1.3;
   if(has(a,'heart'))m*=1+rv(a,'heart')/100;
-  if(has(a,'edge')&&d.hp/d.maxHp<.4)m*=1+rv(a,'edge')/100;if(o.exec&&d.hp/d.maxHp<.35)m*=1.5;
+  if(has(a,'edge')&&d.hp/d.maxHp<.4)m*=1+rv(a,'edge')/100;if(has(a,'sig_kaida')&&hasFx(d,'burn'))m*=1+rv(a,'sig_kaida')/100;if(o.blocked&&has(d,'sig_brakk')){m*=1-rv(d,'sig_brakk')/100;addPower(d,.06)}if(o.sp&&has(a,'sig_torque'))m*=1+rv(a,'sig_torque')/100;if(o.exec&&d.hp/d.maxHp<.35)m*=1.5;
   if(o.blocked){let bm=o.blockMul;if(has(d,'sigil'))bm=Math.max(.03,bm-rv(d,'sigil')/100);m*=bm}
   m*=rnd(.93,1.07);const dmg=applyDamage(d,Math.max(1,Math.round(base*m)),{crit,blocked:o.blocked});
-  if(has(a,'fang'))heal(a,dmg*rv(a,'fang')/100);return dmg}
+  if(has(a,'fang'))heal(a,dmg*rv(a,'fang')/100);if(crit&&has(a,'sig_nyx'))heal(a,dmg*rv(a,'sig_nyx')/100);return dmg}
 function applyFx(d,e,a){const k=e[0];let du=e[1];if(d.hp<=0||d.state==='ko')return;
   if(k==='stun'||k==='freeze'){if(d.state==='special'||d.stunImm>0)return;if(d.c.boss)du*=.5;if(has(d,'amulet'))du*=1-rv(d,'amulet')/100;d.state='stunned';d.stun=du;d.frozen=k==='freeze';d.combo=0;d.sp=null;floatTxt(d,k==='freeze'?'FROZEN':'STUNNED',k==='freeze'?'#9ff3ff':'#ffd23a',18);return}
-  if(k==='poison'&&a.c.pas==='hexley')du*=1.5;if(FXI[k].bad&&has(d,'amulet'))du*=1-rv(d,'amulet')/100;
+  if(k==='poison'&&a.c.pas==='hexley')du*=1.5;if(FXI[k].bad&&has(a,'sig_morrigan'))du*=1+rv(a,'sig_morrigan')/100;if(FXI[k].bad&&has(d,'amulet'))du*=1-rv(d,'amulet')/100;
   let v=e[2]?e[2]*a.atk:0;if(FXI[k].dot&&has(a,'ashcrown'))v*=1+rv(a,'ashcrown')/100;
-  const ex=d.fx.find(x=>x.k===k);if(ex){ex.t=Math.max(ex.t,du);ex.v=Math.max(ex.v,v)}else d.fx.push({k,t:du,v,tick:.5});floatTxt(d,FXI[k].n,FXI[k].c,15)}
+  const ex=d.fx.find(x=>x.k===k);if(ex){ex.t=Math.max(ex.t,du);ex.v=Math.max(ex.v,v);ex.src=a}else d.fx.push({k,t:du,v,tick:.5,src:a});floatTxt(d,FXI[k].n,FXI[k].c,15)}
 function selfFx(a,mv){if(a.hp<=0)return;(mv.self||[]).forEach(e=>{const k=e[0];
   if(k==='shield'){a.shield=Math.max(a.shield,Math.round(a.maxHp*e[1]));floatTxt(a,'SHIELD','#7fe9ff',16)}
   else if(k==='heal')heal(a,a.maxHp*e[1]);
@@ -1046,7 +1068,7 @@ function selfFx(a,mv){if(a.hp<=0)return;(mv.self||[]).forEach(e=>{const k=e[0];
 function startAttack(f,n){f.state='attack';f.t=0;f.combo=n;f.hitDone=false;f.buf=false;f.want=0;if(n===1)f.blockedLast=false}
 function basicHit(a){const d=foe(a),idx=a.combo;if(!d||d.state==='ko'||d.state==='enter'||B.phase!=='fight')return;
   const blocked=d.state==='block',dx=posX(d)+FACE[d.side]*18,dy=GY-128+rnd(-22,14),free=d.state==='idle'||d.state==='attack'||d.state==='recover';
-  if(!blocked&&free&&((d.c.pas==='zhen'&&R()<.18)||(has(d,'talon')&&R()<rv(d,'talon')/100))){floatTxt(d,'DODGE','#a8f0b4',17);if(has(d,'talon'))addPower(d,.5);return}
+  if(!blocked&&free&&((d.c.pas==='zhen'&&R()<.18)||(has(d,'talon')&&R()<rv(d,'talon')/100)||(has(d,'sig_zhen')&&R()<rv(d,'sig_zhen')/100))){floatTxt(d,'DODGE','#a8f0b4',17);if(has(d,'talon'))addPower(d,.5);return}
   let base=a.atk*ATK[idx-1].m;if(idx===3&&has(a,'knuckle'))base*=1+rv(a,'knuckle')/100;
   if(blocked&&canParry(d)){parry(d,a);return}
   const dmg=dealDamage(a,d,base,{blocked,blockMul:.3});addPower(a,.11);addPower(d,.06);a.blockedLast=blocked;
@@ -1057,11 +1079,12 @@ function basicHit(a){const d=foe(a),idx=a.combo;if(!d||d.state==='ko'||d.state==
   if(d.hp>0){if(a.c.pas==='kaida'&&idx===3)applyFx(d,['burn',3,.12],a);if(has(a,'vial')&&R()<rv(a,'vial')/100)applyFx(d,['poison',3,.08],a);
     if(idx===3&&has(a,'glacier')&&R()<rv(a,'glacier')/100)applyFx(d,['freeze',1.2],a);
     if(has(d,'blight')&&a.hp>0)applyFx(a,['poison',3,rv(d,'blight')/100],d)}
-  if(a.c.pas==='grimtide')heal(a,dmg*.15);
+  if(a.c.pas==='grimtide')heal(a,dmg*.15);if(has(a,'sig_grimtide'))heal(a,dmg*rv(a,'sig_grimtide')/100);
+  if(d.hp>0&&has(a,'sig_sylphine')&&R()<rv(a,'sig_sylphine')/100)applyFx(d,['freeze',.8],a);
   if(has(d,'thorn')&&a.hp>0)applyDamage(a,Math.max(1,Math.round(dmg*rv(d,'thorn')/100)),{dot:'bleed'})}
 function spHit(a,mv,i,n){const d=foe(a);if(a.sp)a.sp.hitN++;if(!d||d.state==='ko'||d.state==='enter'||B.phase!=='fight')return;
   const per=mv.mult/n*(1+.1*(a.ranks[mv.i]-1)),blocked=d.state==='block'&&!mv.unblock;
-  const dmg=dealDamage(a,d,a.atk*per,{blocked,blockMul:.5,exec:mv.exec});addPower(d,.04);
+  const dmg=dealDamage(a,d,a.atk*per,{blocked,blockMul:.5,exec:mv.exec,sp:1});addPower(d,.04);
   if(mv.steal)heal(a,dmg*mv.steal);if(blocked)B.cc[a.side].n=0;else{landed(a,dmg);if(i===n-1)hitstop(mv.cost===3?.14:.08)}
   const dx=posX(d),dy=GY-112+rnd(-24,18);burst(dx,dy,blocked?6:12,blocked?'#bcd4ff':mv.col,260,.4,3.5);shake(mv.cost===3?9:5);if(blocked)sfx('blockh');else SPX.hit(a,mv,i,n);
   if(!blocked&&d.hp>0&&d.state!=='special'&&d.state!=='stunned'&&d.state!=='ko'){d.state='hit';d.t=0;d.hitDur=.4;d.combo=0;d.buf=false;d.want=0}
@@ -1107,8 +1130,8 @@ function poseFor(f){switch(f.state){
     if(st==='slam')return ph==='jump'?POSES.air:POSES.slam;if(st==='blink')return POSES['atk'+(2+sp.hitN%2)];return POSES.cast}}
   return POSES.idle}
 function updateFighter(f,dt){if(f.warp){f.warp.t+=dt;if(f.warp.t>=f.warp.dur){if(f.warp.out)f.alpha=0;f.warp=null}}
-  f.flash=Math.max(0,f.flash-dt*5);f.stunImm-=dt;f.want-=dt;f.wantH-=dt;f.parryCd-=dt;
-  if(f.state!=='ko'){for(let i=f.fx.length-1;i>=0;i--){const e=f.fx[i];if(!e)continue;e.t-=dt;if(FXI[e.k].dot||e.k==='regen'){e.tick-=dt;if(e.tick<=0){e.tick+=.5;if(e.k==='regen')heal(f,e.v);else{applyDamage(f,Math.max(1,Math.round(e.v)),{dot:e.k});if(f.state==='ko')break}}}if(e.t<=0)f.fx.splice(i,1)}
+  f.flash=Math.max(0,f.flash-dt*5);f.stunImm-=dt;if(has(f,'sig_seraphel')&&f.hp>0&&f.state!=='ko'&&B.phase==='fight')f.hp=Math.min(f.maxHp,f.hp+f.maxHp*rv(f,'sig_seraphel')/100*dt);f.want-=dt;f.wantH-=dt;f.parryCd-=dt;
+  if(f.state!=='ko'){for(let i=f.fx.length-1;i>=0;i--){const e=f.fx[i];if(!e)continue;e.t-=dt;if(FXI[e.k].dot||e.k==='regen'){e.tick-=dt;if(e.tick<=0){e.tick+=.5;if(e.k==='regen')heal(f,e.v);else{const dd=applyDamage(f,Math.max(1,Math.round(e.v)),{dot:e.k});if(e.k==='poison'&&e.src&&has(e.src,'sig_hexley')&&e.src.state!=='bench')heal(e.src,dd*rv(e.src,'sig_hexley')/100);if(f.state==='ko')break}}}if(e.t<=0)f.fx.splice(i,1)}
     f.auraT-=dt;if(f.auraT<=0&&f.fx.length){f.auraT=.09;const e=f.fx[Math.floor(R()*f.fx.length)];if(e&&FXI[e.k].dot)B.parts.push({x:posX(f)+rnd(-18,18),y:GY-rnd(40,150),vx:rnd(-15,15),vy:e.k==='bleed'?60:-70,life:.5,max:.5,col:FXI[e.k].c,size:3,grav:e.k==='bleed'?300:-40})}}
   const o=foe(f);let tx=0,rate=15;
   switch(f.state){
@@ -1161,6 +1184,7 @@ function tick(dt){if(!B||B.paused)return;if(B.hs>0){B.hs-=dt;B.rdt=0;B.shake=Mat
   B.shake=Math.max(0,B.shake-real*34);B.flash=Math.max(0,B.flash-real*3);B.T[0].tagCd-=dt;B.T[1].tagCd-=dt;
   if(B.phase==='intro'){B.pt+=dt;if(B.pt>=1.7)B.phase='fight'}
   if(B.phase==='finish')finTick(real);
+  if(B.phase==='fight')checkEnder();
   for(let s=0;s<2;s++){const c=B.cc[s],dd=act(1-s);c.pop+=real;c.t-=dt*(dd&&(dd.state==='hit'||dd.state==='stunned')?1:4);if(c.t<=0&&c.n){c.n=0;c.dmg=0}if(!c.n)c.fade=Math.max(0,c.fade-real*1.6)}
   const p=act(0);p.hold=INPUT.block&&B.phase==='fight';
   if(B.phase==='fight')aiUpdate(dt);else act(1).hold=false;
@@ -1279,7 +1303,7 @@ function render(){const g=G;g.setTransform(Q,0,0,Q,0,0);g.globalAlpha=1;g.global
   if(B.phase==='intro'){const t=B.pt;g.save();if(t<1){g.globalAlpha=clamp(t/.15,0,1);g.font='italic 40px '+DF;otext(g,B.cfg.label,W/2,230,'#ffffff',6);g.font='italic 22px '+DF;otext(g,ARENAS[B.cfg.arena].name.toUpperCase(),W/2,264,'#f6b93b',5)}else{const u=(t-1)/.7,sc=1+(1-clamp(u*4,0,1))*.9;g.globalAlpha=u>.7?(1-u)/.3:1;g.translate(W/2,260);g.scale(sc,sc);g.font='italic 96px '+DF;otext(g,'FIGHT!',0,0,'#e5383b',10)}g.restore()}
   if(B.phase==='fight'&&B.time<8){g.globalAlpha=clamp((8-B.time)/1.5,0,1)*.9;g.font='600 13px system-ui,sans-serif';otext(g,'Tap: attack (SPACE)  ·  Swipe: heavy, breaks guard (L)  ·  Hold BLOCK (S)  ·  1 2 3: specials  ·  Q E: tag',W/2,126,'#ffffff',3);otext(g,'Block just as a hit lands for a PERFECT  ·  Tap BLOCK while being comboed to BREAK out (1 bar)',W/2,144,'#ffffff',3);g.globalAlpha=1}
   if(B.phase==='end'){const u=clamp(B.pt/.3,0,1);g.save();g.globalAlpha=u;g.translate(W/2,250);g.scale(2-u,2-u);g.font='italic 92px '+DF;otext(g,B.result==='win'?'VICTORY':'DEFEATED',0,0,B.result==='win'?'#f6b93b':'#e5383b',10);g.restore()}
-  if(B.st.fin&&B.fin&&B.fin.ct>=2){const u=clamp((B.fin.ct-2)/.25,0,1);g.save();g.globalAlpha=u;g.translate(W/2,B.phase==='end'?350:290);g.scale(1+(1-u)*.8,1+(1-u)*.8);g.font='italic 60px '+DF;otext(g,FINNAME[B.fin.el]||'FINISHED',0,0,'#ffe45c',8);g.restore()}
+  if((B.st.fin||B.st.ender)&&B.fin&&B.fin.ct>=2){const u=clamp((B.fin.ct-2)/.25,0,1);g.save();g.globalAlpha=u;g.translate(W/2,B.phase==='end'?350:290);g.scale(1+(1-u)*.8,1+(1-u)*.8);g.font='italic 60px '+DF;otext(g,FINNAME[B.fin.el]||'FINISHED',0,0,'#ffe45c',8);if(B.fin.ender){g.font='italic 26px '+DF;otext(g,'SIGNATURE ENDER · '+B.fin.ender.toUpperCase(),0,40,'#ffffff',5)}g.restore()}
   if(B.flash>0){g.fillStyle='rgba(255,255,255,'+B.flash*.6+')';g.fillRect(0,0,W,H)}
 }
 
@@ -1330,7 +1354,7 @@ function pause(){if(!B||B.phase==='end')return;if(B.paused){B.paused=false;elOv.
 function showFight(cfg){startBattle(cfg);elMenu.hidden=true;elFight.hidden=false;elOv.hidden=true;resize();if(!running){running=true;last=performance.now();requestAnimationFrame(frame)}}
 function leaveFight(){running=false;B=null;elFight.hidden=true;elMenu.hidden=false;INPUT.block=false;if(CLOUD.deferred){const c=CLOUD.deferred;CLOUD.deferred=null;adoptCloud(c)}}
 function relicGot(id){const r=RL[id];return'<div class="got" style="--rc:'+r.col+'"><span class="sym">'+r.sym+'</span><div><b>New relic: '+r.name+'</b><small>'+rdesc(id,rlvl(id))+'</small></div></div>'}
-function finishBattle(){const c=B.cfg,win=B.result==='win',base=win?c.reward:Math.round(c.reward*.15),cb=B.T[0].fs.reduce((n,f)=>n+rv(f,'coin'),0),st=B.st,fb=win&&st.fin?Math.round(base*.25):0,bonus=Math.round(base*cb/100)+fb;
+function finishBattle(){const c=B.cfg,win=B.result==='win',base=win?c.reward:Math.round(c.reward*.15),cb=B.T[0].fs.reduce((n,f)=>n+rv(f,'coin'),0),st=B.st,fb=win&&(st.fin||st.ender)?Math.round(base*.25):0,bonus=Math.round(base*cb/100)+fb;
   let note='You still earn a small purse. Upgrade your fighters and try again.',extra='';
   if(win){
     if(c.mode==='tower'){if(c.stage>S.tower){S.tower=c.stage;note='Stage '+c.stage+' cleared for the first time.'}else note='Stage '+c.stage+' cleared again. Replays pay half.'}
@@ -1342,8 +1366,8 @@ function finishBattle(){const c=B.cfg,win=B.result==='win',base=win?c.reward:Mat
   S.gold+=base+bonus;save();sfx('coin');
   const next=win&&((c.mode==='tower'&&c.stage<STAGES)||(c.mode==='pin'&&c.stage<PINMAX)),story=c.mode==='story'&&win;
   elOv.innerHTML='<div class="res '+(win?'win':'lose')+'"><h1>'+(win?'Victory':'Defeated')+'</h1><p>'+note+'</p>'+
-    '<div class="rew"><i class="coin"></i><span>+'+(base+bonus).toLocaleString()+' gold</span>'+(bonus?'<small>Includes '+[fb?'+'+fb+' Fury Finish bonus':'',bonus-fb?'+'+(bonus-fb)+' from Lucky Coin':''].filter(Boolean).join(' and ')+'</small>':'')+'</div>'+
-    '<div class="fst">'+[['Best combo',st.max+(st.max===1?' hit':' hits')],['Heavies',st.heavy],['Guard breaks',st.guard],['Perfect blocks',st.perfect],['Breakers',st.breakers]].map(x=>'<span><b>'+x[1]+'</b>'+x[0]+'</span>').join('')+(st.fin?'<span class="ff"><b>✓</b>Fury Finish</span>':'')+'</div>'+extra+
+    '<div class="rew"><i class="coin"></i><span>+'+(base+bonus).toLocaleString()+' gold</span>'+(bonus?'<small>Includes '+[fb?'+'+fb+(st.ender?' Signature Ender bonus':' Fury Finish bonus'):'',bonus-fb?'+'+(bonus-fb)+' from Lucky Coin':''].filter(Boolean).join(' and ')+'</small>':'')+'</div>'+
+    '<div class="fst">'+[['Best combo',st.max+(st.max===1?' hit':' hits')],['Heavies',st.heavy],['Guard breaks',st.guard],['Perfect blocks',st.perfect],['Breakers',st.breakers]].map(x=>'<span><b>'+x[1]+'</b>'+x[0]+'</span>').join('')+(st.fin?'<span class="ff"><b>✓</b>Fury Finish</span>':'')+(st.ender?'<span class="ff"><b>✪</b>'+st.ender+'</span>':'')+'</div>'+extra+
     '<div class="row">'+(story?'<button class="btn gold-b" data-a="exit">Continue</button>':'')+(next?'<button class="btn gold-b" data-a="nextStage">Next '+(c.mode==='pin'?'level':'stage')+'</button>':'')+'<button class="btn'+(next||story?'':' gold-b')+'" data-a="again">'+(win?'Fight again':'Retry')+'</button><button class="btn" data-a="toRoster">Upgrade fighters</button>'+(story?'':'<button class="btn" data-a="exit">Leave</button>')+'</div></div>';
   elOv.hidden=false}
 /* ================= menus ================= */
@@ -1370,7 +1394,7 @@ home(){makeHero();const owned=CHARS.filter(c=>S.chars[c.id].own).length;
   '<button class="mode" data-a="quick" style="--ac:#f6b93b"><b>Quick Battle</b><span>Pick an arena and a difficulty</span></button>'+
   '<button class="mode" data-a="go" data-s="roster" style="--ac:#3ddbc4"><b>Roster</b><span>'+owned+' of '+CHARS.length+' fighters. Level up and equip relics</span></button>'+
   '<button class="mode" data-a="go" data-s="shop" style="--ac:#c04dff"><b>Relic Forge</b><span>Buy and upgrade enhancers</span></button></nav>'+
-  '<section class="how"><h3>How to play</h3><ul><li><b>Attack:</b> tap the arena (or press Space). Keep tapping for a 3-hit combo.</li><li><b>Heavy:</b> swipe across the arena (or press L). Slow to start, but it smashes through a guard and leaves the enemy dazed. A quick jab interrupts it.</li><li><b>Block:</b> hold the Block button (or S). A blocked combo leaves the attacker open, so punish it. Press Block just as a hit lands for a <b>Perfect</b>: no damage, the attacker staggers, and you gain power.</li><li><b>Breaker:</b> getting comboed? Tap Block to burst free for 1 power bar.</li><li><b>Specials:</b> hits fill 3 power bars. Spend 1, 2 or 3 bars on each fighter\'s unique moves (keys 1, 2, 3). The 3-bar move cannot be blocked.</li><li><b>Tag:</b> tap a teammate portrait (Q or E) to swap in. The team with a fighter still standing wins.</li><li><b>Fury Finish:</b> knock out the last enemy and they are left reeling. Follow the big prompts (swipe or tap anywhere on screen) before time runs out to finish them in style, for 25% bonus gold. A wrong move just costs a little time.</li><li><b>Grow:</b> gold from battles buys levels, move ranks, new fighters, relics and relic upgrades.</li></ul></section>'+
+  '<section class="how"><h3>How to play</h3><ul><li><b>Attack:</b> tap the arena (or press Space). Keep tapping for a 3-hit combo.</li><li><b>Heavy:</b> swipe across the arena (or press L). Slow to start, but it smashes through a guard and leaves the enemy dazed. A quick jab interrupts it.</li><li><b>Block:</b> hold the Block button (or S). A blocked combo leaves the attacker open, so punish it. Press Block just as a hit lands for a <b>Perfect</b>: no damage, the attacker staggers, and you gain power.</li><li><b>Breaker:</b> getting comboed? Tap Block to burst free for 1 power bar.</li><li><b>Specials:</b> hits fill 3 power bars. Spend 1, 2 or 3 bars on each fighter\'s unique moves (keys 1, 2, 3). The 3-bar move cannot be blocked.</li><li><b>Tag:</b> tap a teammate portrait (Q or E) to swap in. The team with a fighter still standing wins.</li><li><b>Fury Finish:</b> knock out the last enemy and they are left reeling. Follow the big prompts (swipe or tap anywhere on screen) before time runs out to finish them in style, for 25% bonus gold. A wrong move just costs a little time.</li><li><b>Signature enhancers:</b> each fighter has their own enhancer in the Relic Forge with stats and a perk only they can get. Wear it and, when the last enemy drops below 40% HP, there is a 50% chance your fighter unleashes a Signature Ender that ends the match.</li><li><b>Grow:</b> gold from battles buys levels, move ranks, new fighters, relics and relic upgrades.</li></ul></section>'+
   '<p class="note">'+(CLOUD.on?'Progress is saved to your Claude account, so it follows you between devices.':'Progress is saved in this browser on this device.')+'</p><div class="foot"><button class="btn" data-a="mute">Sound: '+(S.mute?'Off':'On')+'</button><button class="btn'+(UI.resetArm?' red':'')+'" data-a="reset">'+(UI.resetArm?'Tap again to erase all progress':'Reset progress')+'</button></div>'},
 roster(){return header('Roster','home')+'<p class="note">Tap a fighter to upgrade, equip relics, or unlock.</p><div class="grid">'+CHARS.map(c=>fcard(c)).join('')+'</div>'},
 char(){const c=CH[UI.cid],st=S.chars[c.id],rel=relMap(c.id),cur=stats(c.id,st.lvl,rel),nx=stats(c.id,Math.min(MAXL,st.lvl+1),rel),lc=lvlCost(st.lvl);
@@ -1378,15 +1402,16 @@ char(){const c=CH[UI.cid],st=S.chars[c.id],rel=relMap(c.id),cur=stats(c.id,st.lv
   if(!st.own)h+='<div class="sec"><h3>Locked</h3><p>Recruit '+c.name+' to add them to your team.</p><div class="row"><button class="btn gold-b" data-a="unlock"'+(S.gold<c.cost?' disabled':'')+'>Unlock for '+coinH+c.cost.toLocaleString()+'</button>'+(S.gold<c.cost?'<span class="note">You need '+(c.cost-S.gold).toLocaleString()+' more gold.</span>':'')+'</div></div>';
   else h+='<div class="sec"><h3><span>Level '+st.lvl+' / '+MAXL+'</span>'+(st.lvl>=MAXL?'<span class="maxed">Max level</span>':'')+'</h3>'+pips(st.lvl,MAXL)+(st.lvl<MAXL?'<div class="row"><button class="btn gold-b" data-a="lvl"'+(S.gold<lc?' disabled':'')+'>Level up for '+coinH+lc.toLocaleString()+'</button><span class="note">HP '+cur.hp+' → '+nx.hp+', ATK '+cur.atk+' → '+nx.atk+'</span></div>':'')+'</div>';
   h+='<div class="sec"><h3>Passive: '+c.passive[0]+'</h3><p>'+c.passive[1]+'</p></div><div class="sec"><h3>Moves</h3>'+c.moves.map((m,i)=>{const r=st.ranks[i],rc=rankCost(r);return'<div class="mv"><div><b>'+m.name+'</b><span class="pw" title="'+m.cost+' power bar'+(m.cost>1?'s':'')+'">'+'<i></i>'.repeat(m.cost)+'</span><p>'+describe(m,r)+'</p><div class="rk">Rank '+r+' / '+MAXR+(r<MAXR&&m.hits?' · next rank: +10% damage':'')+'</div></div>'+(st.own?(r<MAXR?'<button class="btn" data-a="rank" data-i="'+i+'"'+(S.gold<rc?' disabled':'')+'>Upgrade '+coinH+rc.toLocaleString()+'</button>':'<span class="tag2 ok">MAX</span>'):'')+'</div>'}).join('')+'</div>';
-  if(st.own){h+='<div class="sec"><h3>Gear slots</h3><div class="slots">'+st.relics.map((rid,i)=>{const r=rid&&RL[rid];return'<button class="slot'+(r?' full':'')+(UI.slot===i?' sel':'')+'" data-a="slot" data-i="'+i+'"'+(r?' style="--rc:'+r.col+'"':'')+'>'+(r?'<span class="sym">'+r.sym+'</span><b>'+r.name+' <span class="tag2">LV '+rlvl(rid)+'</span></b><small>'+rdesc(rid,rlvl(rid))+'</small>':'<b>Empty slot</b><small>Tap to equip a relic</small>')+'</button>'}).join('')+'</div>';
-    if(UI.slot!=null){const opts=RELICS.filter(r=>avail(r.id)>0&&!st.relics.includes(r.id));h+='<div class="pick">'+(st.relics[UI.slot]?'<button class="btn" data-a="unequip">Remove '+RL[st.relics[UI.slot]].name+'</button>':'')+opts.map(r=>'<button class="btn" data-a="equip" data-id="'+r.id+'"><span class="sym" style="--rc:'+r.col+'">'+r.sym+'</span><span><b>'+r.name+'</b> <small>LV '+rlvl(r.id)+'. '+rdesc(r.id,rlvl(r.id))+' ('+avail(r.id)+' free)</small></span></button>').join('')+(opts.length?'':'<p class="note">No spare relics to equip. <button class="btn" data-a="go" data-s="shop">Visit the Relic Forge</button></p>')+'</div>'}
+  if(st.own){const sg=RL['sig_'+c.id],sgOwn=(S.inv[sg.id]||0)>0;h+='<div class="sec" style="--rc:'+sg.col+'"><h3><span><span class="sym">✪</span> Signature: '+sg.name+'</span>'+(st.relics.includes(sg.id)?'<span class="tag2 ok">EQUIPPED</span>':sgOwn?'<span class="tag2">OWNED</span>':'')+'</h3><p>'+rdesc(sg.id,rlvl(sg.id))+'</p>'+(sgOwn?(st.relics.includes(sg.id)?'':'<p class="nx">Tap a gear slot below to equip it.</p>'):'<div class="row"><button class="btn" data-a="go" data-s="shop">Get it in the Relic Forge</button></div>')+'</div>';
+    h+='<div class="sec"><h3>Gear slots</h3><div class="slots">'+st.relics.map((rid,i)=>{const r=rid&&RL[rid];return'<button class="slot'+(r?' full':'')+(UI.slot===i?' sel':'')+'" data-a="slot" data-i="'+i+'"'+(r?' style="--rc:'+r.col+'"':'')+'>'+(r?'<span class="sym">'+r.sym+'</span><b>'+r.name+' <span class="tag2">LV '+rlvl(rid)+'</span></b><small>'+rdesc(rid,rlvl(rid))+'</small>':'<b>Empty slot</b><small>Tap to equip a relic</small>')+'</button>'}).join('')+'</div>';
+    if(UI.slot!=null){const opts=RELICS.filter(r=>avail(r.id)>0&&!st.relics.includes(r.id)&&(!r.sig||r.sig===c.id));h+='<div class="pick">'+(st.relics[UI.slot]?'<button class="btn" data-a="unequip">Remove '+RL[st.relics[UI.slot]].name+'</button>':'')+opts.map(r=>'<button class="btn" data-a="equip" data-id="'+r.id+'"><span class="sym" style="--rc:'+r.col+'">'+r.sym+'</span><span><b>'+r.name+'</b> <small>LV '+rlvl(r.id)+'. '+rdesc(r.id,rlvl(r.id))+' ('+avail(r.id)+' free)</small></span></button>').join('')+(opts.length?'':'<p class="note">No spare relics to equip. <button class="btn" data-a="go" data-s="shop">Visit the Relic Forge</button></p>')+'</div>'}
     h+='</div>'}
   return h+'</div></div>'},
-shop(){const card=r=>{const own=S.inv[r.id]||0,l=rlvl(r.id),uc=upCost(r.id,l),special=r.pin||r.story,src=r.pin?'Reward for beating Pinnacle level '+r.pin*10:'Reward for finishing the Story';
-    return'<div class="rcard'+(special&&!own?' lockd':'')+'" style="--rc:'+r.col+';--ac:'+r.col+'"><h3><span class="sym">'+r.sym+'</span>'+r.name+'</h3>'+pips(l,MAXRL)+'<p>'+rdesc(r.id,l)+'</p>'+(l<MAXRL?'<p class="nx">Level '+(l+1)+': '+rdesc(r.id,l+1)+'</p>':'<p class="nx">Max level</p>')+
-      '<div class="own">'+(special&&!own?src:'Owned '+own+(own?' · '+equipped(r.id)+' equipped':''))+'</div><div class="row">'+(special?'':'<button class="btn gold-b" data-a="buy" data-id="'+r.id+'"'+(S.gold<r.cost?' disabled':'')+'>Buy '+coinH+r.cost.toLocaleString()+'</button>')+
+shop(){const card=r=>{const own=S.inv[r.id]||0,l=rlvl(r.id),uc=upCost(r.id,l),special=r.pin||r.story,sl=r.sig&&!S.chars[r.sig].own,src=r.pin?'Reward for beating Pinnacle level '+r.pin*10:'Reward for finishing the Story';
+    return'<div class="rcard'+(special&&!own?' lockd':'')+'" style="--rc:'+r.col+';--ac:'+r.col+'"><h3>'+(r.sig?'<img class="sh" src="'+IMG[r.sig].head+'" alt="">':'<span class="sym">'+r.sym+'</span>')+r.name+'</h3>'+pips(l,MAXRL)+'<p>'+rdesc(r.id,l)+'</p>'+(l<MAXRL?'<p class="nx">Level '+(l+1)+': '+rdesc(r.id,l+1)+'</p>':'<p class="nx">Max level</p>')+
+      '<div class="own">'+(special&&!own?src:'Owned '+own+(own?' · '+equipped(r.id)+' equipped':''))+'</div><div class="row">'+(special||(r.sig&&own)?'':sl?'<span class="note">Unlock '+CH[r.sig].name+' first</span>':'<button class="btn gold-b" data-a="buy" data-id="'+r.id+'"'+(S.gold<r.cost?' disabled':'')+'>Buy '+coinH+r.cost.toLocaleString()+'</button>')+
       (own&&l<MAXRL?'<button class="btn" data-a="upRelic" data-id="'+r.id+'"'+(S.gold<uc?' disabled':'')+'>Upgrade '+coinH+uc.toLocaleString()+'</button>':'')+'</div></div>'};
-  return header('Relic Forge','home')+'<p class="note">Each fighter has 3 gear slots. Buy a relic, equip it from the fighter\'s page, and upgrade it here up to level '+MAXRL+'. An upgrade applies to every copy you own.</p><div class="grid shop">'+RELICS.filter(r=>!r.pin&&!r.story).map(card).join('')+'</div><h2 style="font-size:22px">Legendary relics</h2><p class="note">These cannot be bought. Win them from Pinnacle bosses and the Story finale.</p><div class="grid shop">'+RELICS.filter(r=>r.pin||r.story).map(card).join('')+'</div>'},
+  return header('Relic Forge','home')+'<p class="note">Each fighter has 3 gear slots. Buy a relic, equip it from the fighter\'s page, and upgrade it here up to level '+MAXRL+'. An upgrade applies to every copy you own.</p><div class="grid shop">'+RELICS.filter(r=>!r.pin&&!r.story&&!r.sig).map(card).join('')+'</div><h2 style="font-size:22px">Signature enhancers</h2><p class="note">One for each fighter, and only that fighter can wear it. Each gives bonus ATK and HP, a perk no one else can get, and a Signature Ender: when the last enemy drops below 40% HP, a 50% chance to end the match on the spot.</p><div class="grid shop">'+RELICS.filter(r=>r.sig).map(card).join('')+'</div><h2 style="font-size:22px">Legendary relics</h2><p class="note">These cannot be bought. Win them from Pinnacle bosses and the Story finale.</p><div class="grid shop">'+RELICS.filter(r=>r.pin||r.story).map(card).join('')+'</div>'},
 tower(){let h=header('Tower of Trials','home')+'<p class="note">Clear all '+STAGES+' stages. Every fifth stage is a boss team. First clears pay full gold, replays pay half.</p><div class="stages">';
   for(let s=1;s<=STAGES;s++){const d=stageDef(s),done=s<=S.tower,nextS=s===S.tower+1,lock=s>S.tower+1;
     h+='<button class="stage'+(nextS?' next':'')+(d.boss?' boss':'')+(lock?' lockd':'')+'" data-a="stage" data-m="tower" data-s="'+s+'"'+(lock?' disabled':'')+'><span class="n">'+s+'</span><span class="info"><b>'+ARENAS[d.arena].name+' '+(d.boss?'<span class="tag2 bs">BOSS</span> ':'')+(done?'<span class="tag2 ok">CLEARED</span>':nextS?'<span class="tag2">NEXT</span>':'')+'</b><span>Enemy level '+d.lvl+'</span></span>'+heads(d.enemies.map(e=>e.cid))+'<span class="rw">'+coinH+(done?Math.round(d.reward*.5):d.reward)+'</span></button>'}
@@ -1444,7 +1469,7 @@ const ACT={
   slot:d=>{UI.slot=UI.slot===+d.i?null:+d.i;sfx('ui');draw()},
   equip:d=>{const st=S.chars[UI.cid];if(UI.slot==null||avail(d.id)<=0||st.relics.includes(d.id))return;st.relics[UI.slot]=d.id;UI.slot=null;save();sfx('ui');draw()},
   unequip:()=>{const st=S.chars[UI.cid];if(UI.slot==null)return;st.relics[UI.slot]=null;UI.slot=null;save();sfx('ui');draw()},
-  buy:d=>{const r=RL[d.id];if(r.pin||r.story||S.gold<r.cost)return;S.gold-=r.cost;S.inv[r.id]=(S.inv[r.id]||0)+1;save();sfx('coin');draw()},
+  buy:d=>{const r=RL[d.id];if(r.pin||r.story||S.gold<r.cost)return;if(r.sig&&(!S.chars[r.sig].own||(S.inv[r.id]||0)>0))return;S.gold-=r.cost;S.inv[r.id]=(S.inv[r.id]||0)+1;save();sfx('coin');draw()},
   upRelic:d=>{const l=rlvl(d.id),c=upCost(d.id,l);if(!(S.inv[d.id]>0)||l>=MAXRL||S.gold<c)return;S.gold-=c;S.rl[d.id]=l+1;save();sfx('coin');draw()},
   mute:()=>{S.mute=!S.mute;save();audioKick();if(B&&B.paused){B.paused=false;pause()}else draw()},
   reset:()=>{if(!UI.resetArm){UI.resetArm=true;draw();return}try{localStorage.removeItem(KEY)}catch(e){}S=defSave();save();UI.resetArm=false;draw()},
