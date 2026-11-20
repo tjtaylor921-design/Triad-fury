@@ -892,7 +892,7 @@ function tintOf(fr,col){fr.tints=fr.tints||{};let c=fr.tints[col];if(c)return c;
 const R3={want:{brakk:'models/brakk.glb'},tex:{brakk:['models/brakk-art.png','models/brakk-glow.png']},state:'idle',inst:new Map(),cont:{},POSES:['idle','a1w','a1','a2w','a2','a3w','a3','heavyW','heavy','block','hit','stun','cast','air','slam','dash','win','ko'],PX:768};
 const r3On=id=>R3.state==='ready'&&!S.no3d&&!R3.off&&!!R3.cont[id];
 function r3Load(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.onload=ok;sc.onerror=no;document.head.appendChild(sc)})}
-function r3Need(ids){if(S.no3d)return;R3.off=!!R3.white;R3.nready=0;R3.slow=0;R3.ft=[];R3.inst.forEach(I=>I.root.dispose(false,true));R3.inst.clear();ids=ids.filter(id=>R3.want[id]);if(!ids.length||R3.state==='fail')return;
+function r3Need(ids){if(S.no3d)return;R3.off=!!R3.white;R3.nready=0;R3.checked=false;R3.slow=0;R3.ft=[];R3.inst.forEach(I=>I.root.dispose(false,false));R3.inst.clear();ids=ids.filter(id=>R3.want[id]);if(!ids.length||R3.state==='fail')return;
   if(R3.state==='ready'){ids.forEach(id=>{if(!R3.cont[id])r3Model(id)});return}if(R3.state==='loading')return;R3.state='loading';
   (window.BABYLON?Promise.resolve():r3Load('lib/babylon.js').then(()=>r3Load('lib/babylonjs.loaders.min.js'))).then(()=>{r3Init();return Promise.all(Object.keys(R3.want).map(r3Model))}).then(()=>{R3.state='ready'}).catch(e=>{console.warn('3D fighters unavailable',e);R3.state='fail'})}
 function r3Init(){const Bb=BABYLON,cv=document.createElement('canvas');cv.width=cv.height=R3.PX;
