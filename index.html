@@ -889,7 +889,7 @@ const sp=SPR[id],m=sp.m,name=sp.fr[o.frame]?o.frame:'stance',fr=sp.fr[name],im=f
   g.restore()}
 function tintOf(fr,col){fr.tints=fr.tints||{};let c=fr.tints[col];if(c)return c;c=document.createElement('canvas');c.width=fr.im.width;c.height=fr.im.height;const t=c.getContext('2d');t.drawImage(fr.im,0,0);t.globalCompositeOperation='source-atop';t.fillStyle=col;t.fillRect(0,0,c.width,c.height);fr.tints[col]=c;return c}
 /* ================= 3D fighters (Babylon.js, loaded only when a 3D fighter is in the fight) ================= */
-const R3={want:{brakk:'models/brakk.glb',kaida:'models/kaida.glb',torque:'models/torque.glb',hexley:'models/hexley.glb',nyx:'models/nyx.glb'},tex:{brakk:['models/brakk-art.png','models/brakk-glow.png'],kaida:['models/kaida-art.jpg'],torque:['models/torque-art.jpg'],hexley:['models/hexley-art.jpg'],nyx:['models/nyx-art.jpg']},state:'idle',inst:new Map(),cont:{},POSES:['idle','a1w','a1','a2w','a2','a3w','a3','heavyW','heavy','block','hit','stun','cast','air','slam','dash','win','ko'],PX:768};
+const R3={fix:[-1,1,-1,.62],want:{brakk:'models/brakk.glb',kaida:'models/kaida.glb',torque:'models/torque.glb',hexley:'models/hexley.glb',nyx:'models/nyx.glb'},tex:{brakk:['models/brakk-art.png','models/brakk-glow.png'],kaida:['models/kaida-art.jpg'],torque:['models/torque-art.jpg'],hexley:['models/hexley-art.jpg'],nyx:['models/nyx-art.jpg']},state:'idle',inst:new Map(),cont:{},POSES:['idle','a1w','a1','a2w','a2','a3w','a3','heavyW','heavy','block','hit','stun','cast','air','slam','dash','win','ko'],PX:768};
 const r3On=id=>R3.state==='ready'&&!S.no3d&&!R3.off&&!!R3.cont[id];
 function r3Load(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.onload=ok;sc.onerror=no;document.head.appendChild(sc)})}
 function r3Need(ids){if(S.no3d)return;R3.off=!!R3.white;R3.nready=0;R3.checked=false;R3.slow=0;R3.ft=[];R3.inst.forEach(I=>I.root.dispose(false,false));R3.inst.clear();ids=ids.filter(id=>R3.want[id]);if(!ids.length||R3.state==='fail')return;
@@ -912,7 +912,7 @@ function r3Model(id){const Bb=BABYLON,u=R3.want[id],i=u.lastIndexOf('/');
     R3.cont[id]={c,lib}})}
 function r3Inst(f){let I=R3.inst.get(f);if(I)return I;const Bb=BABYLON,C=R3.cont[f.cid];
   const e=C.c.instantiateModelsToScene(n=>n,false,{doNotInstantiate:true});e.animationGroups.forEach(a=>{a.stop();a.dispose()});
-  const root=new Bb.TransformNode('r3root',R3.sc);e.rootNodes.forEach(n=>n.parent=root);root.scaling.set(1,1,-1);root.rotation.y=-.62;
+  const root=new Bb.TransformNode('r3root',R3.sc);e.rootNodes.forEach(n=>n.parent=root);const FX=f.cid==='brakk'?[1,1,-1,-.62]:R3.fix;root.scaling.set(FX[0],FX[1],FX[2]);root.rotation.y=FX[3];
   const nodes={};root.getDescendants(false).forEach(n=>{nodes[n.name]=n});const cur={};
   I={root,nodes,cur,last:-1,pose:'idle',meshes:root.getChildMeshes()};R3.inst.set(f,I);return I}
 function pose3(f){switch(f.state){
