@@ -1,0 +1,26 @@
+"""Per-fighter joint layout (front view x, height z; model faces +x), measured from the ortho grids.
+B = back arm/leg (-x side), F = front. weapon: capsule segments carried with the arms piece."""
+CFG = {
+ 'kaida': dict(pelvis=(-.15, 1.0), spine=(-.15, 1.25), chest=(-.15, 1.5), neck=(-.12, 1.78), top=(-.1, 2.2),
+   hipB=(-.3, .95), kneeB=(-.45, .55), ankB=(-.55, .15), hipF=(0, .95), kneeF=(.15, .6), ankF=(.1, .15),
+   shB=(-.35, 1.62), elB=(-.3, 1.35), haB=(-.05, 1.2), shF=(0, 1.6), elF=(.05, 1.38), haF=(.05, 1.25),
+   weapon=[((0, 1.2), (.72, 2.02), .05)]),
+ 'sylphine': dict(pelvis=(0, 1.15), spine=(0, 1.35), chest=(0, 1.6), neck=(.2, 1.85), top=(.35, 2.2),
+   hipB=(-.15, 1.1), kneeB=(-.35, .6), ankB=(-.45, .15), hipF=(.15, 1.1), kneeF=(.55, .55), ankF=(.7, .15),
+   shB=(-.25, 1.72), elB=(-.15, 1.4), haB=(.1, 1.45), shF=(.25, 1.72), elF=(.45, 1.35), haF=(.55, 1.1),
+   weapon=[((-1.1, 1.0), (-.45, 1.45), .04), ((.35, 1.6), (.76, 1.75), .09)]),
+ 'torque': dict(pelvis=(-.15, 1.0), spine=(-.15, 1.25), chest=(-.15, 1.55), neck=(-.15, 1.85), top=(-.15, 2.25),
+   hipB=(-.35, .95), kneeB=(-.5, .55), ankB=(-.55, .15), hipF=(.05, .95), kneeF=(.25, .6), ankF=(.25, .15),
+   shB=(-.45, 1.65), elB=(-.4, 1.35), haB=(-.3, 1.3), shF=(.1, 1.65), elF=(.35, 1.55), haF=(.65, 1.55), weapon=[]),
+ 'hexley': dict(pelvis=(0, 1.05), spine=(0, 1.3), chest=(0, 1.55), neck=(.05, 1.78), top=(.1, 2.25),
+   hipB=(-.2, 1.0), kneeB=(-.45, .6), ankB=(-.65, .15), hipF=(.15, 1.0), kneeF=(.4, .6), ankF=(.45, .15),
+   shB=(-.25, 1.65), elB=(-.3, 1.38), haB=(.1, 1.35), shF=(.2, 1.65), elF=(.45, 1.35), haF=(.35, 1.65), weapon=[]),
+ 'nyx': dict(pelvis=(0, 1.05), spine=(0, 1.3), chest=(0, 1.55), neck=(0, 1.85), top=(0, 2.2),
+   hipB=(-.25, 1.0), kneeB=(-.55, .55), ankB=(-.7, .15), hipF=(.2, 1.0), kneeF=(.55, .6), ankF=(.65, .15),
+   shB=(-.35, 1.7), elB=(-.5, 1.45), haB=(-.05, 1.45), shF=(.3, 1.7), elF=(.5, 1.4), haF=(.4, 1.55),
+   weapon=[((.05, 1.5), (.3, 1.66), .04)]),
+ 'seraphel': dict(pelvis=(-.15, 1.05), spine=(-.15, 1.3), chest=(-.15, 1.55), neck=(-.15, 1.8), top=(-.15, 2.15),
+   hipB=(-.35, 1.0), kneeB=(-.55, .6), ankB=(-.75, .15), hipF=(0, 1.0), kneeF=(.15, .6), ankF=(0, .15),
+   shB=(-.4, 1.6), elB=(-.45, 1.3), haB=(-.25, 1.25), shF=(.05, 1.6), elF=(.15, 1.35), haF=(.35, 1.35),
+   weapon=[((-.4, 1.2), (.92, 1.55), .045)]),
+}

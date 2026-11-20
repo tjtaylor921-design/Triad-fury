@@ -17,3 +17,8 @@ How `prototypes/brakk-3d/brakk.glb` was made. Needs `pip install bpy` (Blender 5
 8. `python3 lib_preview.py -- rig2.blend lib`: preview the pose library in `poses3.py`.
 9. `python3 export_lib.py -- rig2.blend brakk.glb 26000 6000`: lighter mesh + a "Poses" action (frame i = `ORDER[i]`).
    The game (`R3` in index.html) reads each pose from that action and blends between them by fight state.
+
+## Other fighters (gbuild.py)
+Joints per fighter live in `fighters.py` (read off the ortho grids). After `clean.py` and `ortho.py`:
+`python3 gbuild.py -- CID clean.blend ortho_front.png art_padded.png CID.glb` paints, splits arms + weapon,
+rigs with Brakk's bone names, and exports the shared 18-pose library. Add the fighter to `R3.want`/`R3.tex` in index.html.

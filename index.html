@@ -889,12 +889,12 @@ const sp=SPR[id],m=sp.m,name=sp.fr[o.frame]?o.frame:'stance',fr=sp.fr[name],im=f
   g.restore()}
 function tintOf(fr,col){fr.tints=fr.tints||{};let c=fr.tints[col];if(c)return c;c=document.createElement('canvas');c.width=fr.im.width;c.height=fr.im.height;const t=c.getContext('2d');t.drawImage(fr.im,0,0);t.globalCompositeOperation='source-atop';t.fillStyle=col;t.fillRect(0,0,c.width,c.height);fr.tints[col]=c;return c}
 /* ================= 3D fighters (Babylon.js, loaded only when a 3D fighter is in the fight) ================= */
-const R3={want:{brakk:'models/brakk.glb'},tex:{brakk:['models/brakk-art.png','models/brakk-glow.png']},state:'idle',inst:new Map(),cont:{},POSES:['idle','a1w','a1','a2w','a2','a3w','a3','heavyW','heavy','block','hit','stun','cast','air','slam','dash','win','ko'],PX:768};
+const R3={want:{brakk:'models/brakk.glb',kaida:'models/kaida.glb',torque:'models/torque.glb',hexley:'models/hexley.glb',nyx:'models/nyx.glb'},tex:{brakk:['models/brakk-art.png','models/brakk-glow.png'],kaida:['models/kaida-art.jpg'],torque:['models/torque-art.jpg'],hexley:['models/hexley-art.jpg'],nyx:['models/nyx-art.jpg']},state:'idle',inst:new Map(),cont:{},POSES:['idle','a1w','a1','a2w','a2','a3w','a3','heavyW','heavy','block','hit','stun','cast','air','slam','dash','win','ko'],PX:768};
 const r3On=id=>R3.state==='ready'&&!S.no3d&&!R3.off&&!!R3.cont[id];
 function r3Load(src){return new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=src;sc.onload=ok;sc.onerror=no;document.head.appendChild(sc)})}
 function r3Need(ids){if(S.no3d)return;R3.off=!!R3.white;R3.nready=0;R3.checked=false;R3.slow=0;R3.ft=[];R3.inst.forEach(I=>I.root.dispose(false,false));R3.inst.clear();ids=ids.filter(id=>R3.want[id]);if(!ids.length||R3.state==='fail')return;
   if(R3.state==='ready'){ids.forEach(id=>{if(!R3.cont[id])r3Model(id)});return}if(R3.state==='loading')return;R3.state='loading';
-  (window.BABYLON?Promise.resolve():r3Load('lib/babylon.js').then(()=>r3Load('lib/babylonjs.loaders.min.js'))).then(()=>{r3Init();return Promise.all(Object.keys(R3.want).map(r3Model))}).then(()=>{R3.state='ready'}).catch(e=>{console.warn('3D fighters unavailable',e);R3.state='fail'})}
+  (window.BABYLON?Promise.resolve():r3Load('lib/babylon.js').then(()=>r3Load('lib/babylonjs.loaders.min.js'))).then(()=>{r3Init();return Promise.all(ids.map(r3Model))}).then(()=>{R3.state='ready'}).catch(e=>{console.warn('3D fighters unavailable',e);R3.state='fail'})}
 function r3Init(){const Bb=BABYLON,cv=document.createElement('canvas');cv.width=cv.height=R3.PX;
   const eng=new Bb.Engine(cv,true,{preserveDrawingBuffer:true,alpha:true,antialias:true,stencil:true},false),sc=new Bb.Scene(eng);sc.clearColor=new Bb.Color4(0,0,0,0);
   const cam=new Bb.FreeCamera('c',new Bb.Vector3(0,1.6,-10),sc);cam.setTarget(new Bb.Vector3(0,1.6,0));cam.mode=Bb.Camera.ORTHOGRAPHIC_CAMERA;
@@ -904,9 +904,9 @@ function r3Init(){const Bb=BABYLON,cv=document.createElement('canvas');cv.width=
 function r3Model(id){const Bb=BABYLON,u=R3.want[id],i=u.lastIndexOf('/');
   return Bb.SceneLoader.LoadAssetContainerAsync(u.slice(0,i+1),u.slice(i+1),R3.sc).then(c=>{
     const lib={},ag=c.animationGroups[0];ag.targetedAnimations.forEach(ta=>{const keys=ta.animation.getKeys();(lib[ta.target.name]=lib[ta.target.name]||{})[ta.animation.targetProperty]=R3.POSES.map((_,k)=>{const kk=keys.find(q=>Math.abs(q.frame-k)<.01)||keys[Math.min(k,keys.length-1)];return kk.value})});
-    const T=R3.tex[id],art=c.materials.find(m=>m.name==='BrakkArt');
-    if(T&&art){const a=new Bb.Texture(T[0],R3.sc,false,false),e=new Bb.Texture(T[1],R3.sc,false,false);a.uAddressMode=a.vAddressMode=Bb.Texture.CLAMP_ADDRESSMODE;
-      art.albedoTexture=a;art.emissiveTexture=null;art.emissiveColor=Bb.Color3.Black();e.onLoadObservable.addOnce(()=>{art.emissiveTexture=e;art.emissiveColor=new Bb.Color3(1.6,1.6,1.6);art._base=art.emissiveColor.clone();art._etex=e});
+    const T=R3.tex[id],art=c.materials.find(m=>/Art$/.test(m.name));
+    if(T&&art){const a=new Bb.Texture(T[0],R3.sc,false,false),e=T[1]?new Bb.Texture(T[1],R3.sc,false,false):null;a.uAddressMode=a.vAddressMode=Bb.Texture.CLAMP_ADDRESSMODE;
+      art.albedoTexture=a;art.emissiveTexture=null;art.emissiveColor=Bb.Color3.Black();if(e)e.onLoadObservable.addOnce(()=>{art.emissiveTexture=e;art.emissiveColor=new Bb.Color3(1.6,1.6,1.6);art._base=art.emissiveColor.clone();art._etex=e});
       c.textures.filter(t=>t!==a&&t!==e).forEach(t=>{try{t.dispose()}catch(x){}})}
     c.materials.forEach(m=>{if(m.metallic!=null){m.metallic=.18;m.roughness=.5;m.directIntensity=2.2;m.environmentIntensity=0;if(/Hammer/.test(m.name)){m.metallic=.05;m.roughness=.35;m.albedoColor=BABYLON.Color3.FromHexString(/Gold/.test(m.name)?'#d89a2a':/Handle/.test(m.name)?'#3a2a22':'#8a96a8');m.backFaceCulling=false;m.twoSidedLighting=true;m.emissiveColor=BABYLON.Color3.FromHexString(/Gold/.test(m.name)?'#3a2408':'#1c2026')}}m._base=m.emissiveColor?m.emissiveColor.clone():null;m._etex=m.emissiveTexture||null});
     R3.cont[id]={c,lib}})}
@@ -1696,7 +1696,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b
 /* ================= boot ================= */
 buildImages();draw();loadSprites();loadAnims();
 /* warm up the 3D fighters in the menus so the first fight never stalls while Babylon loads */
-setTimeout(()=>{const go=()=>{if(!B&&CHARS.some(c=>S.chars[c.id].own&&R3.want[c.id]))r3Need(Object.keys(R3.want))};if(window.requestIdleCallback)requestIdleCallback(go,{timeout:4000});else go()},1500);cloudInit();
+setTimeout(()=>{const go=()=>{if(!B&&CHARS.some(c=>S.chars[c.id].own&&R3.want[c.id]))r3Need(CHARS.filter(c=>S.chars[c.id].own).map(c=>c.id))};if(window.requestIdleCallback)requestIdleCallback(go,{timeout:4000});else go()},1500);cloudInit();
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{}).catch(()=>{});
 window.__tf={spxRender:async(elem,kind,cost)=>{const old=AC;AC=new OfflineAudioContext(1,44100*2.4,44100);const prevMute=S.mute;S.mute=false;const tt={v:cost===3?1:.85,s:cost===3?1.15:1};try{const e=SPX.test[elem];if(kind==='beam')e.beam(tt,.9);else e[kind](tt)}catch(x){AC=old;S.mute=prevMute;throw x}const b=await AC.startRendering();AC=old;S.mute=prevMute;return Array.from(b.getChannelData(0))},card:(id,w,h)=>charCanvas(id,w,h,false).toDataURL(),pinDef,STORY,BOSSES,get B(){return B},get R3(){return R3},get S(){return S},CHARS,RELICS,tick,render,act:s=>act(s),useSpecial,startHeavy,breaker,tag,startAttack,showFight,buildCfg,UI,go,stageDef,ACT};
 })();
